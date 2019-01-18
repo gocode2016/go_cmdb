@@ -1,0 +1,343 @@
+<script>
+    window.onload = function(){
+        add_user();
+        load_user_list();
+        load_user_group_list("cn");
+        load_user_group_list("foreign");
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#ZabbixManage").addClass("active");
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}","");
+        $("#GroupName").select2({
+            dropdownParent:$("#UserModal"),
+        });
+    };
+
+    data = {
+        keyword: "",
+        title: "",
+        user_id: "",
+        media_name: "",
+        sendto: "",
+        period: "",
+        tint: "",
+        user_list: [],
+        environment: "cn",
+        user_group_list: "",
+        cn_user_group_list: [],
+        foreign_user_group_list: [],
+        owned_user_group_list: [],
+        unowned_user_group_list: [],
+        allocate_user_group_list: [],
+        old_user_group_list: [],
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#zabbix_user_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            get_user_list: function(){
+                get_user_list(this.keyword);
+            },
+            get_user_group: function(){
+                if(this.environment === "cn") {
+                    this.user_group_list = this.cn_user_group_list;
+                } else if(this.environment === "foreign") {
+                    this.user_group_list = this.foreign_user_group_list;
+                }
+            },
+            clear_data: function(){
+                this.title = "添加zabbix用户";
+                this.environment = "cn";
+                this.user_group_list = this.cn_user_group_list;
+            },
+            delete_user: function(id,userId,type) {
+                delete_user(id,userId,type)
+            },
+            add_user_group: function(index){
+                this.owned_user_group_list.push(this.unowned_user_group_list[index]);
+                this.unowned_user_group_list.splice(index,1);
+            },
+            remove_user_group: function(index){
+                this.unowned_user_group_list.push(this.owned_user_group_list[index]);
+                this.owned_user_group_list.splice(index,1);
+            },
+            edit_user: function(userId,groupId,type,mediaName){
+                this.title = "编辑zabbix用户组";
+                this.user_id = userId;
+                this.environment = type;
+                this.media_name = mediaName;
+                this.sendto = "";
+                this.period = "";
+                this.tint = "";
+                this.old_user_group_list = [];
+                this.owned_user_group_list = [];
+                this.unowned_user_group_list = [];
+                edit_user(userId,groupId,type);
+            },
+            update_user: function(){
+                update_user(this.user_id,this.allocate_user_group_list,this.environment,this.old_user_group_list,this.sendto,this.period)
+            }
+        },
+        watch: {
+            owned_user_group_list: function (newVal, oldVal) {
+                data.allocate_user_group_list = [];
+                $(newVal).each(function(idx,v) {
+                    data.allocate_user_group_list.push(v.GroupId);
+                });
+            },
+        }
+    });
+
+    function update_user(userId,allocate_user_group_list,environment,old_user_group_list,sendto,period) {
+        console.log(old_user_group_list.sort(),allocate_user_group_list.sort());
+        console.log(old_user_group_list.sort().toString() === allocate_user_group_list.sort().toString());
+        if(sendto === "" && period === "") {
+            if (old_user_group_list.sort().toString() === allocate_user_group_list.sort().toString()) {
+                return false
+            }
+        }
+        if(sendto === "" && period !== "") {
+            data.tint = "<strong style='color:red'>设置了发送时间，发送地址不能为空！</strong>";
+            return false
+        }
+        var userGroupNames = "";
+        $("#allocateUserName option").each(function(){
+            if(userGroupNames === ""){
+                userGroupNames += $(this).text();
+            } else {
+                userGroupNames += "," + $(this).text();
+            }
+        });
+        $.ajax({
+            url: "{{urlfor "ZabbixUserController.DoZabbixUser"}}",
+            type: "post",
+            data: {"userId": userId,"environment": environment,"allocate_user_group_list":JSON.stringify(allocate_user_group_list),
+                "userGroupNames": userGroupNames,"Sendto":sendto,"Period":period},
+            success: function (res) {
+                if (res.Status === "fail") {
+                    layer.alert(res.Msg, {icon: 6, title: '错误'})
+                } else {
+                    window.location.reload();
+                }
+            }
+        })
+    }
+
+    function edit_user(userId,groupId,type) {
+        if(type === "cn"){
+            data.cn_user_group_list.forEach(function(value,index,arr){
+                if(groupId.indexOf(",") >= 0){
+                    owned_user_group_id_list = groupId.split(",");
+                    index2 = $.inArray(value.GroupId.toString(),owned_user_group_id_list);
+                    if(index2 >= 0){
+                        data.old_user_group_list.push(value.GroupId);
+                        data.owned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    } else {
+                        data.unowned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    }
+                } else {
+                    if (value.GroupId.toString() === groupId) {
+                        data.old_user_group_list.push(groupId);
+                        data.owned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    } else {
+                        data.unowned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    }
+                }
+            })
+        } else if(type === "foreign") {
+            data.foreign_user_group_list.forEach(function(value,index,arr){
+                if(groupId.indexOf(",") >= 0){
+                    owned_user_group_id_list = groupId.split(",");
+                    index2 = $.inArray(value.GroupId.toString(),owned_user_group_id_list);
+                    if(index2 >= 0){
+                        data.old_user_group_list.push(value.GroupId);
+                        data.owned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    } else {
+                        data.unowned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    }
+                } else {
+                    if (value.GroupId.toString() === groupId) {
+                        data.old_user_group_list.push(groupId);
+                        data.owned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    } else {
+                        data.unowned_user_group_list.push({
+                            "GroupId": value.GroupId,
+                            "GroupName": value.GroupName
+                        })
+                    }
+                }
+            })
+        }
+    }
+
+    function delete_user(id,userId,type) {
+        layer.confirm("确定要删除该用户吗？",{title:"删除确认"},function() {
+            $.ajax({
+                url: "{{urlfor "ZabbixUserController.DoZabbixUser"}}",
+                type: "post",
+                data: {"id": id,"userId": userId,"environment": type},
+                success: function (res) {
+                    if (res.Status === "fail") {
+                        layer.alert(res.Msg, {icon: 6, title: '错误'})
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            })
+        })
+    }
+
+    function page(totalPage, count, environment, keyword){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_user_list(environment, page, keyword);
+            }
+        });
+    }
+
+    function get_user_list(keyword){
+        if ($.trim(keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "ZabbixUserController.GetUserList"}}",
+            data:{"keyword": $.trim(keyword)},
+            success:function(res){
+                data.user_list = res;
+                count = "{{.number}}";
+                if(data.user_list){
+                    total = data.user_list[0]["Count"];
+                    totalPage = Math.ceil(total/count);
+                    page(totalPage, count, "", keyword);
+                } else {
+                    page(0, count, "", keyword);
+                }
+            }
+        })
+    }
+
+    function load_user_list(environment, page, keyword) {
+        $.ajax({
+            url:"{{urlfor "ZabbixUserController.GetUserList"}}",
+            data: {"page": page,"keyword": keyword, "environment": environment},
+            success:function(res){
+                data.user_list = res;
+            }
+        })
+    }
+
+    function load_user_group_list(environment){
+        $.ajax({
+            url:"{{urlfor "ZabbixUserGroupController.GetUserGroupList"}}",
+            data: {"page": page,"environment": environment},
+            success:function(res){
+                if(environment === "cn"){
+                    data.cn_user_group_list = res;
+                } else if(environment === "foreign") {
+                    data.foreign_user_group_list = res;
+                }
+            }
+        })
+    }
+
+    function add_user(){
+        var $UserForm = $('#UserForm');
+        var rules = {
+            UserName: {
+                maxlength: 32,
+                required: true
+            },
+            GroupIds: {
+                required: true
+            },
+        };
+        var messages = {
+            UserName: {
+                maxlength: "长度不能大于32位",
+                required: "请输入用户名"
+            },
+            GroupIds: {
+                required: "请选择主机组"
+            },
+        };
+
+        $UserForm.sdvalidate({
+            rules: rules,
+            messages: messages,
+            highlight: function(element,errorClass){
+                $(element).css('border','2px solid red');
+            },
+            unhighlight: function(element,errorClass){
+                $(element).css('border','1px solid green');
+            },
+            submitHandler: function (form) {
+                var GroupNames = "";
+                $("#GroupName option:selected").each(function(){
+                    if(GroupNames === ""){
+                        GroupNames += $(this).text();
+                    } else {
+                        GroupNames += "," + $(this).text();
+                    }
+                });
+                console.log(GroupNames);
+                var url = '{{urlfor "ZabbixUserController.DoZabbixUser"}}';
+                var FormData = $.param({"GroupNames":GroupNames})+'&'+$UserForm.serialize();
+                $.ajax({
+                    type:"post",
+                    async:true,
+                    data:FormData,
+                    url:url,
+                    dataType:"json",
+                    success: function(res){
+                        if(res.Status === "ok") {
+                            window.location.reload();
+                        } else {
+                            layer.alert(res.Msg, {icon:6,title:'提示'})
+                        }
+                    }
+                });
+                return false;
+            }
+        });
+    }
+</script>

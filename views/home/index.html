@@ -1,0 +1,47 @@
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        首页
+        <small>仪表盘</small>
+    </h1> 
+</section>
+<!-- Main content -->
+<section class="content container-fluid">
+    <!-- 页面内容开始 -->
+    <div class="row">        
+        <div class="col-lg-6 col-xs-6">
+            <!-- small box -->
+            <div class="small-box bg-aqua">
+                <div class="inner">
+                    <h3>{{.AssetTotal}}</h3>
+                    <p>资产数</p>
+                </div>
+                <div class="icon">
+                    <i class="ion ion-laptop"></i>
+                </div>
+                <a href="{{urlfor "AssetController.Index"}}"class="small-box-footer">更多信息 <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+        <div class="col-lg-6 col-xs-6">
+            <!-- small box -->
+            <div class="small-box bg-green">
+                <div class="inner">
+                    <h3>{{.UserTotal}}</h3>
+                    <p>用户数</p>
+                </div>
+                <div class="icon">
+                    <i class="ion ion-person-add"></i>
+                </div>
+                <a href="{{urlfor "UserController.Index"}}" class="small-box-footer">更多信息 <i class="fa fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+    </div>
+    <!-- /.row -->   
+    <div class="row">
+        <div class="col-md-12">
+            <div id="main" style="height:400px;"></div>
+        </div>
+    </div>
+    <!-- 页面内容结束 -->
+</section>
+<!-- /.content -->

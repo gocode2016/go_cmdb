@@ -1,0 +1,505 @@
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        资产管理
+        <small>资产列表</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li>
+            <a href="{{urlfor "HomeController.Index"}}">
+                <i class="fa fa-dashboard"></i> 首页</a>
+        </li>
+        <li class="active">资产管理</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content container-fluid" id="asset_list">
+    <!-- 页面内容开始 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+                <form id="search_form">
+                    <div class="box-header">
+                        <div class="col-sm-2" v-if="owned_permissions.add_asset">
+                            <button type="button" class="btn btn-info btn-sm" style="margin-left:-15px" data-target="#AssetModal" data-toggle="modal" @click="clear_edit_asset()">添加资产</button>
+                        </div>
+                        <div class="col-sm-2" v-else></div>
+                        <div class="col-sm-4"></div>
+                        <div class="col-sm-2">
+                            <div class="input-group input-group-sm" style="width:150px;">
+                                <select class="form-control" @change="get_asset_list()" name="idc_name" v-model="idc">
+                                    <option disabled>IDC机房</option>
+                                    <option v-for="line in idc_list" :value="line.Id" v-text="line.Name"></option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="input-group input-group-sm" style="width:150px;">
+                                <select class="form-control" @change="get_asset_list()" name="asset_status" v-model="asset_status">
+                                    <option disabled>主机状态</option>
+                                    <option value="线上">线上</option>
+                                    <option value="空闲">空闲</option>
+                                    <option value="下架">下架</option>
+                                    <option value="报废">报废</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="input-group input-group-sm" style="width:150px;">
+                                <input type="text" name="keyword" class="form-control" placeholder="Search" v-model="keyword">
+                                <div class="input-group-btn">
+                                    <button type="button" class="btn btn-default" @click="get_asset_list()"><i class="fa fa-search"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <!-- /.box-header -->
+                <div class="box-body">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                        <tr>
+                            <th>主机名</th>
+                            <th>内网IP</th>
+                            <th>外网IP</th>
+                            <th>应用服务</th>
+                            <th>所属资产组</th>
+                            <th>所属IDC</th>
+                            <th>主机状态</th>
+                            <th>是否是发布机</th>
+                            <th v-if="owned_permissions.delete_asset || owned_permissions.edit_asset">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="line in asset_list">
+                                <td><a v-text="line.Hostname" @click="show_asset_info(line.Id)" data-target="#showAssetInfoModal" data-toggle="modal"></a></td>
+                                <td v-text="line.InnerIp"></td>
+                                <td v-if="line.OuterIp" v-text="line.OuterIp"></td>
+                                <td v-else>-</td>
+                                <td v-if="line.Applications" v-text="line.Applications" style="width:135px"></td>
+                                <td v-else>-</td>
+                                <td v-if="line.AssetGroupName" v-text="line.AssetGroupName"></td>
+                                <td v-else>-</td>
+                                <td v-if="line.IdcName" v-text="line.IdcName" style="width:150px"></td>
+                                <td v-else>-</td>
+                                <td><span v-if="line.AssetStatus=='线上'" class="label label-success" v-text="line.AssetStatus"></span><span v-if="line.AssetStatus=='空闲'" class="label label-info" v-text="line.AssetStatus"></span><span v-if="line.AssetStatus=='下架'" class="label label-warning" v-text="line.AssetStatus"></span><span v-if="line.AssetStatus=='报废'" class="label label-danger" v-text="line.AssetStatus"></span></td>
+                                <td><span v-if="line.IsPublisher=='1'" class="label label-success">Y</span><span v-else class="label label-warning">N</span></td>
+                                <td v-if="owned_permissions.delete_asset || owned_permissions.edit_asset"><span class="btn btn-danger btn-sm" @click="delete_asset(line.Id)" v-if="owned_permissions.delete_asset">删除</span> <span class="btn btn-info btn-sm" @click="edit_asset(line.Id)" data-target="#AssetModal" data-toggle="modal" v-if="owned_permissions.edit_asset">编辑</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div id="pagination" class="pull-right"></div>
+                </div>
+                <!-- /.box-body -->
+            </div>
+        </div>
+    </div>
+    <!-- 页面内容结束 -->
+    <!--资产详情model展示开始-->
+    <div class="modal fade" id="showAssetInfoModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">资产详情</h4>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-bordered table-striped">
+                        <tr>
+                            <td>主机名</td>
+                            <td v-text="asset_info_list.Hostname"></td>
+                        </tr>
+                        <tr>
+                            <td>内网IP</td>
+                            <td v-text="asset_info_list.InnerIp"></td>
+                        </tr>
+                        <tr>
+                            <td>外网IP</td>
+                            <td v-if="asset_info_list.OuterIp" v-text="asset_info_list.OuterIp"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>操作系统</td>
+                            <td v-if="asset_info_list.Os" v-text="asset_info_list.Os"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>操作系统版本</td>
+                            <td v-if="asset_info_list.OsRelease" v-text="asset_info_list.OsRelease"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>CPU</td>
+                            <td v-if="asset_info_list.Cpu" v-text="asset_info_list.Cpu"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>内存</td>
+                            <td v-if="asset_info_list.Memory" v-text="asset_info_list.Memory"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>硬盘</td>
+                            <td v-if="asset_info_list.Disk" v-text="asset_info_list.Disk"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>SN</td>
+                            <td v-if="asset_info_list.Sn" v-text="asset_info_list.Sn"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>资产类型</td>
+                            <td v-if="asset_info_list.AssetType" v-text="asset_info_list.AssetType"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>资产环境</td>
+                            <td v-if="asset_info_list.AssetEnvironment" v-text="asset_info_list.AssetEnvironment"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>厂商</td>
+                            <td v-if="asset_info_list.Manufacturer" v-text="asset_info_list.Manufacturer"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>资产型号</td>
+                            <td v-if="asset_info_list.Model" v-text="asset_info_list.Model"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>资产编号</td>
+                            <td v-if="asset_info_list.AssetNumber" v-text="asset_info_list.AssetNumber"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>机柜号</td>
+                            <td v-if="asset_info_list.CabinetNumber" v-text="asset_info_list.CabinetNumber"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>机柜位置</td>
+                            <td v-if="asset_info_list.CabinetPosition" v-text="asset_info_list.CabinetPosition"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>发布机</td>
+                             <td v-if="asset_info_list.IsPublisher">Y</td>
+                            <td v-else>N</td>
+                        </tr>
+                        <tr>
+                            <td>资产状态</td>
+                            <td v-if="asset_info_list.AssetStatus" v-text="asset_info_list.AssetStatus"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>应用服务</td>
+                            <td v-if="asset_info_list.Applications" v-text="asset_info_list.Applications"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>所在机房</td>
+                            <td v-if="asset_info_list.IdcName" v-text="asset_info_list.IdcName"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>所属资产组</td>
+                            <td v-if="asset_info_list.AssetGroupName" v-text="asset_info_list.AssetGroupName"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>JDK版本</td>
+                            <td v-if="asset_info_list.JdkVersion" v-text="asset_info_list.JdkVersion"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>备注</td>
+                            <td v-if="asset_info_list.Comment" v-text="asset_info_list.Comment"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>过期时间</td>
+                            <td v-if="asset_info_list.ExpireTime" v-text="asset_info_list.ExpireTime"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>最后更新时间</td>
+                            <td v-if="asset_info_list.UpdateTime" v-text="asset_info_list.UpdateTime"></td>
+                            <td v-else>-</td>
+                        </tr>
+                        <tr>
+                            <td>创建时间</td>
+                            <td v-if="asset_info_list.CreateTime" v-text="asset_info_list.CreateTime"></td>
+                            <td v-else>-</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--资产详情model展示结束-->
+    <!--资产添加model开始-->
+    <div class="modal fade" id="AssetModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel" v-text="title"></h4>
+                </div>
+                <form role="form" id="addAssetForm" class="form-horizontal">
+                    <div class="modal-body">
+                        <div class="box-body">
+                            <div class="form-group">
+                                <label for="inputHostName" class="col-sm-2 control-label">主机名</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputHostName" name="hostname" placeholder="主机名" v-model="Hostname">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputInnerIP" class="col-sm-2 control-label">内网IP</label>
+                                <div class="col-sm-10" v-if="title=='资产编辑'">
+                                    <input type="text" class="form-control" id="inputInnerIP" name="inner_ip" v-model="InnerIp" disabled>
+                                </div>
+                                <div class="col-sm-10" v-if="title=='资产录入'">
+                                    <input type="text" class="form-control" id="inputInnerIP" name="inner_ip" placeholder="内网IP">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputOuterIP" class="col-sm-2 control-label">外网IP</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputOuterIP" name="outer_ip" v-model="OuterIp" v-if="OuterIp">
+                                    <input type="text" class="form-control" id="inputOuterIP" name="outer_ip" v-model="OuterIp" placeholder="外网IP" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">操作系统</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="os" v-model="Os">
+                                        <option v-if="Os=='CentOS'" value="CentOS" selected>CentOS</option>
+                                        <option v-else value="Centos">Centos</option>
+                                        <option v-if="Os=='Ubuntu'" value="Ubuntu" selected>Ubuntu</option>
+                                        <option v-else value="Ubuntu">Ubuntu</option>
+                                        <option v-if="Os=='Debain'" value="Debain" selected>Debain</option>
+                                        <option v-else value="Debain">Debain</option>
+                                        <option v-if="Os=='Fedora'" value="Fedora" selected>Fedora</option>
+                                        <option v-else value="Fedora">Fedora</option>
+                                        <option v-if="Os=='Suse'" value="Suse" selected>Suse</option>
+                                        <option v-else value="Suse">Suse</option>
+                                        <option v-if="Os=='Windows'" value="Windows" selected>Windows</option>
+                                        <option v-else value="Windows">Windows</option>
+                                        <option v-if="Os=='Other'" value="Other" selected>Other</option>
+                                        <option v-else value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputOsRelease" class="col-sm-2 control-label">系统版本</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputOsRelease" name="os_release" v-if="OsRelease" v-model="OsRelease">
+                                    <input type="text" class="form-control" id="inputOsRelease" placeholder="系统版本" name="os_release" v-model="OsRelease" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputCPU" class="col-sm-2 control-label">CPU</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputCPU" name="cpu" v-if="Cpu" v-model="Cpu">
+                                    <input type="text" class="form-control" id="inputCPU" placeholder="CPU" name="cpu" v-model="Cpu" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputMemory" class="col-sm-2 control-label">内存</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputMemory" name="memory" v-if="Memory" v-model="Memory">
+                                    <input type="text" class="form-control" id="inputMemory" placeholder="内存" name="memory" v-model="Memory" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputDisk" class="col-sm-2 control-label">硬盘</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputDisk" name="disk" v-if="Disk" v-model="Disk">
+                                    <input type="text" class="form-control" id="inputDisk" name="disk" v-model="Disk" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputSN" class="col-sm-2 control-label">sn</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputSN" name="sn" v-if="Sn" v-model="Sn">
+                                    <input type="text" class="form-control" id="inputSN" placeholder="sn" name="sn" v-model="Sn" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">主机类型</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="asset_type" v-model="AssetType">
+                                        <option v-if="AssetType=='普通虚拟机'" value="普通虚拟机" selected>普通虚拟机</option>
+                                        <option v-else value="普通虚拟机">普通虚拟机</option>
+                                        <option v-if="AssetType=='IDC物理机'" value="IDC物理机" selected>IDC物理机</option>
+                                        <option v-else value="IDC物理机">IDC物理机</option>
+                                        <option v-if="AssetType=='阿里云ECS'" value="阿里云ECS" selected>阿里云ECS</option>
+                                        <option v-else value="阿里云ECS">阿里云ECS</option>
+                                        <option v-if="AssetType=='docker虚拟机'" value="docker虚拟机" selected>docker虚拟机</option>
+                                        <option v-else value="docker虚拟机">docker虚拟机</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputManufacturer" class="col-sm-2 control-label">厂商</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputManufacturer" name="manufacturer" v-if="Manufacturer" v-model="Manufacturer">
+                                    <input type="text" class="form-control" id="inputManufacturer" placeholder="厂商" name="manufacturer" v-model="Manufacturer" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputModel" class="col-sm-2 control-label">主机型号</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputModel" name="model" v-if="Model" v-model="Model">
+                                    <input type="text" class="form-control" id="inputModel" placeholder="主机型号" name="model" v-model="Model" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputAssetNumber" class="col-sm-2 control-label">资产编号</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputAssetNumber" name="asset_number" v-if="AssetNumber" v-model="AssetNumber">
+                                    <input type="text" class="form-control" id="inputAssetNumber" placeholder="资产编号" name="asset_number" v-model="AssetNumber" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputCabinetNumber" class="col-sm-2 control-label">机柜号</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputCabinetNumber" name="cabinet_number" v-if="CabinetNumber" v-model="CabinetNumber">
+                                    <input type="text" class="form-control" id="inputCabinetNumber" placeholder="机柜号" name="cabinet_number" v-model="CabinetNumber" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputCabinetPosition" class="col-sm-2 control-label">机柜位置</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputCabinetPosition" name="cabinet_position" v-if="CabinetPosition" v-model="CabinetPosition">
+                                    <input type="text" class="form-control" id="inputCabinetPosition" placeholder="机柜位置" name="cabinet_position" v-model="CabinetPosition" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">发布机</label>
+                                <div class="col-sm-10" v-if="edit_asset_list.length!=0">
+                                    <div v-if="IsPublisher">
+                                        <label class="radio-inline" style="margin-left:10px">
+                                            <input type="radio" name="is_publisher" value="1" checked>是
+                                        </label>
+                                        <label class="radio-inline" style="margin-left:10px">
+                                            <input type="radio" name="is_publisher" value="0">否
+                                        </label>
+                                    </div>
+                                    <div v-else>
+                                        <label class="radio-inline" style="margin-left:10px">
+                                            <input type="radio" name="is_publisher" value="1">是
+                                        </label>
+                                        <label class="radio-inline" style="margin-left:10px">
+                                            <input type="radio" name="is_publisher" value="0" checked>否
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-sm-10" v-else>
+                                    <label class="radio-inline">
+                                        <input type="radio" name="is_publisher" value="1">是
+                                    </label>
+                                    <label class="radio-inline">
+                                        <input type="radio" name="is_publisher" value="0">否
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">主机环境</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="asset_environment" v-model="AssetEnvironment">
+                                        <option v-if="AssetEnvironment=='product-cn'" value="product-cn" selected>product-cn</option>
+                                        <option v-else value="product-cn">product-cn</option>
+                                        <option v-if="AssetEnvironment=='product-foreign'" value="product-foreign" selected>product-foreign</option>
+                                        <option v-else value="product-foreign">product-foreign</option>
+                                        <option v-if="AssetEnvironment=='beta'" value="beta" selected>beta</option>
+                                        <option v-else value="beta">beta</option>
+                                        <option v-if="AssetEnvironment=='test'" value="test" selected>test</option>
+                                        <option value="test" v-else>test</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">主机状态</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="asset_status" v-model="AssetStatus">
+                                        <option v-if="AssetStatus=='线上'" value="线上" selected>线上</option>
+                                        <option v-else value="线上">线上</option>
+                                        <option v-if="AssetStatus=='空闲'" value="空闲" selected>空闲</option>
+                                        <option v-else value="空闲">空闲</option>
+                                        <option v-if="AssetStatus=='下架'" value="下架" selected>下架</option>
+                                        <option v-else value="下架">下架</option>
+                                        <option v-if="AssetStatus=='报废'" value="报废" selected>报废</option>
+                                        <option v-else value="报废">报废</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputApplications" class="col-sm-2 control-label">应用</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputApplications" name="applications" v-if="Applications" v-model="Applications">
+                                    <input type="text" class="form-control" id="inputApplications" placeholder="应用" name="applications" v-model="Applications" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">资产组</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" multiple name="asset_group" v-if="owned_group_list.length!=0" id="group_select">
+                                        <option v-if="owned_group_list" v-for="line in owned_group_list" :value="line.Id" v-text="line.GroupName" selected></option>
+                                        <option v-if="unowned_group_list" v-for="line in unowned_group_list" :value="line.Id" v-text="line.GroupName"></option>
+                                    </select>
+                                    <select class="form-control" multiple name="asset_group" id="group_select" v-else>
+                                        <option v-for="line in group_list" :value="line.Id" v-text="line.GroupName"></option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">所属IDC</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="idc" v-if="owned_idc_list.length!=0" id="idc_select">
+                                        <option v-for="line in idc_list" v-if="IdcName==line.Name" :value="line.Id" v-text="line.Name" selected></option>
+                                        <option v-for="line in unowned_idc_list" :value="line.Id" v-text="line.Name"></option>
+                                    </select>
+                                    <select class="form-control" name="idc" id="idc_select" v-else>
+                                        <option value="IDC机房">IDC机房</option>
+                                        <option v-for="line in idc_list" :value="line.Id" v-text="line.Name"></option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputExpireTime" class="col-sm-2 control-label">过期时间</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputExpireTime" name="expire_time" onClick="WdatePicker()" readonly v-if="ExpireTime" v-model="ExpireTime">
+                                    <input type="text" class="form-control" id="inputExpireTime" placeholder="过期时间" name="expire_time" onClick="WdatePicker()" readonly v-model="ExpireTime" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputJdkVersion" class="col-sm-2 control-label">JDK版本</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputJdkVersion" name="jdk_version" v-if="JdkVersion" v-model="JdkVersion">
+                                    <input type="text" class="form-control" id="inputJdkVersion" placeholder="JDK版本" name="jdk_version" v-model="JdkVersion" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputComment" class="col-sm-2 control-label">备注</label>
+                                <div class="col-sm-10">
+                                    <textarea cols="55" rows="3" id="inputComment" class="form-control" name="comment" v-if="Comment" v-model="Comment"></textarea>
+                                    <textarea cols="55" rows="3" id="inputComment" class="form-control" name="comment" v-model="Comment" v-else></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">cancel</button>
+                        <button v-if="edit_asset_list.length!=0" type="button" class="btn btn-primary" @click="modify_asset()">save</button>
+                        <button v-else type="submit" class="btn btn-primary">save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!--资产添加model结束-->
+</section>

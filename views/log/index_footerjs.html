@@ -1,0 +1,96 @@
+<script>
+    window.onload = function(){
+        load_log_list();
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}");
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#LogCheck").addClass("active");
+    };
+
+    function page(totalPage,count){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_log_list(page);
+            }
+        });
+    }
+
+    data = {
+        log_list: "",
+        keyword: "",
+        sort: "desc",
+        owned_permissions: "",
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#log_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            sort_by_time: function(e){
+                tag = e.target;
+                sort_by_time(tag,this.sort);
+            }
+        }
+    });
+
+    var ret = true;
+    function sort_by_time(tag,sort){
+        var th = $(tag).parent();
+        if(ret){
+            th.attr('class','dropup');
+            ret = false;
+            sort = '';
+        } else {
+            th.attr('class','dropdown');
+            ret = true;
+            sort = 'desc';
+        }
+        data.sort = sort;
+        load_log_list();
+    }
+
+    function get_log_list(){
+        if ($.trim(data.keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "LogController.GetLogList"}}",
+            data:{"keyword":$.trim(data.keyword)},
+            success:function(res){
+                data.log_list = res;
+                count = "{{.number}}";
+                total = data.log_list[0]["Count"];
+                totalPage = Math.ceil(total/count);
+                page(totalPage,count);
+            }
+        })
+    }
+
+    function load_log_list(page){
+        $.ajax({
+            url:"{{urlfor "LogController.GetLogList"}}",
+            data: {"page":page,"keyword":data.keyword,"sort":data.sort},
+            success:function(res){
+                data.log_list = res;
+            }
+        })
+    }
+</script>

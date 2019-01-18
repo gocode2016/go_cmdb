@@ -1,0 +1,88 @@
+<script src="/static/plugins/echarts.common.min.js"></script>
+<script>
+    window.onload = function(){
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#dashboard").addClass("active");
+    };
+    function GetDateStr(AddDayCount) {
+        var dd = new Date();
+        dd.setDate(dd.getDate()+AddDayCount);//获取AddDayCount天后的日期
+        var m = dd.getMonth()+1;//获取当前月份的日期
+        var d = dd.getDate();
+        return m+"-"+d;
+    }
+    var myChart = echarts.init(document.getElementById('main'));
+    option = {
+        title: {
+            text:'最近七天资产变更统计图'
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'cross',
+                crossStyle: {
+                    color: '#999'
+                }
+            }
+        },
+        toolbox: {
+            feature: {
+                dataView: {show: true, readOnly: false},
+                magicType: {show: true, type: ['line', 'bar']},
+                restore: {show: true},
+                saveAsImage: {show: true}
+            }
+        },
+        legend: {
+            data:['最近七天资产入库量','最近七天资产更新量']
+        },
+        xAxis: [
+            {
+                type: 'category',
+                data: [GetDateStr(-7),GetDateStr(-6),GetDateStr(-5),GetDateStr(-4),GetDateStr(-3),GetDateStr(-2),GetDateStr(-1)],
+                axisPointer: {
+                    type: 'shadow'
+                }
+            }
+        ],
+        yAxis: [
+            {
+                type: 'value',
+                name: '最近七天资产入库量',
+                min: 0,
+                max: 500,
+                interval: 50,
+                axisLabel: {
+                    formatter: '{value} 次'
+                }
+            },
+            {
+                type: 'value',
+                name: '最近七天资产更新量',
+                min: 0,
+                max: 500,
+                interval: 50,
+                axisLabel: {
+                    formatter: '{value} 次'
+                }
+            }
+        ],
+        series: [
+            {
+                name:'最近七天资产入库量',
+                type:'bar',
+                data:{{.AddAssetList}}
+            },
+            {
+                name:'最近七天资产更新量',
+                type:'bar',
+                data:{{.UpdateAssetList}}
+            }
+        ]
+    };
+    myChart.setOption(option);
+</script>

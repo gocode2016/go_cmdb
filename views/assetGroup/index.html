@@ -1,0 +1,158 @@
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        资产管理
+        <small>资产组列表</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li>
+            <a href="{{urlfor "HomeController.Index"}}">
+                <i class="fa fa-dashboard"></i> 首页</a>
+        </li>
+        <li class="active">资产组管理</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content container-fluid" id="asset_group_list">
+    <!-- 页面内容开始 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+                <form id="search_form">
+                    <div class="box-header">
+                        <div class="col-sm-2" v-if="owned_permissions.add_group">
+                            <button type="button" class="btn btn-info btn-sm" style="margin-left:-15px" data-target="#AssetGroupModal" data-toggle="modal" @click="clear_data()">添加资产组</button>
+                        </div>
+                        <div class="col-sm-2" v-else></div>
+                        <div class="col-sm-8"></div>
+                        <div class="col-sm-2">
+                            <div class="input-group input-group-sm" style="width:150px;">
+                                <input type="text" name="keyword" class="form-control" placeholder="Search" v-model="keyword">
+                                <div class="input-group-btn">
+                                    <button type="button" class="btn btn-default" @click="get_group_list()"><i class="fa fa-search"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <!-- /.box-header -->
+                <div class="box-body">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                        <tr>
+                            <th>资产组名</th>
+                            <th>资产组别名</th>
+                            <th>开发负责人</th>
+                            <th>运维负责人</th>
+                            <th v-if="owned_permissions.delete_group || owned_permissions.edit_group">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="line in group_list">
+                                <td><a v-text="line.GroupName" @click="get_assets(line.Id)"></a></td>
+                                <td v-if="line.AliasName" v-text="line.AliasName"></td>
+                                <td v-else>-</td>
+                                <td v-if="line.DevManager" v-text="line.DevManager"></td>
+                                <td v-else>-</td>
+                                <td v-if="line.OpManager" v-text="line.OpManager"></td>
+                                <td v-else>-</td>
+                                <td v-if="owned_permissions.delete_group || owned_permissions.edit_group"><span class="btn btn-danger btn-sm" @click="delete_group(line.Id)" v-if="owned_permissions.delete_group">删除</span> <span class="btn btn-primary btn-sm" @click="edit_group(line.Id)" data-target="#AssetGroupModal" data-toggle="modal" v-if="owned_permissions.edit_group">编辑</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div id="pagination" class="pull-right"></div>
+                </div>
+                <!-- /.box-body -->
+            </div>
+        </div>
+    </div>
+    <!-- 页面内容结束 -->
+    <!--start-->
+    <div class="modal fade" id="AssetGroupModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel" v-text="title"></h4>
+                </div>
+                <form role="form" id="addAssetGroupForm" class="form-horizontal">
+                    <div class="modal-body">
+                        <div class="box-body">
+                            <div class="form-group">
+                                <label for="inputGroupName" class="col-sm-3 control-label">资产组名</label>
+                                <div class="col-sm-9">
+                                    <input type="text" class="form-control" id="inputGroupName" name="GroupName" v-if="GroupName" v-model="GroupName">
+                                    <input type="text" class="form-control" id="inputGroupName" name="GroupName" placeholder="资产组名" v-model="GroupName" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputAliasName" class="col-sm-3 control-label">资产组别名</label>
+                                <div class="col-sm-9">
+                                    <input type="text" class="form-control" id="inputAliasName" name="AliasName" placeholder="资产组别名" v-if="AliasName" v-model="AliasName">
+                                    <input type="text" class="form-control" id="inputAliasName" name="AliasName" placeholder="资产组别名" v-model="AliasName" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputDevManager" class="col-sm-3 control-label">开发负责人</label>
+                                <div class="col-sm-9">
+                                    <input type="text" class="form-control" id="inputDevManager" name="DevManager" placeholder="开发负责人" v-if="DevManager" v-model="DevManager">
+                                    <input type="text" class="form-control" id="inputDevManager" name="DevManager" placeholder="开发负责人" v-model="DevManager" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputOpManager" class="col-sm-3 control-label">运维负责人</label>
+                                <div class="col-sm-9">
+                                    <input type="text" class="form-control" id="inputOpManager" name="OpManager" placeholder="运维负责人" v-if="OpManager" v-model="OpManager">
+                                    <input type="text" class="form-control" id="inputOpManager" name="OpManager" placeholder="运维负责人" v-model="OpManager" v-else>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputComment" class="col-sm-3 control-label">备注</label>
+                                <div class="col-sm-9">
+                                    <textarea cols="55" rows="3" id="inputComment" class="form-control" name="Comment" v-if="Comment" v-model="Comment"></textarea>
+                                    <textarea cols="55" rows="3" id="inputComment" class="form-control" name="Comment" v-model="Comment" v-else></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">cancel</button>
+                        <button type="submit" class="btn btn-primary">save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!--end-->
+
+    <div class="modal fade" id="ShowAssetsModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel" v-if="asset_number">对应服务器列表(总共:${asset_number}台)</h4>
+                    <h4 class="modal-title" id="myModalLabel" v-else>对应服务器列表(总共:0台)</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="box-body">
+                        <table class="table table-bordered table-striped" v-if="asset_list.length > 0">
+                            <thead>
+                                <tr>
+                                    <th>主机名</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="line in asset_list">
+                                    <td v-text="line.Hostname"></td>
+                                    <td v-text="line.IP"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p v-else>没有对应的服务器列表....</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

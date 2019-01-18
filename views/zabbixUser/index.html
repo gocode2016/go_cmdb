@@ -1,0 +1,177 @@
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        zabbix管理
+        <small>zabbix用户列表</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li>
+            <a href="{{urlfor "HomeController.Index"}}">
+                <i class="fa fa-dashboard"></i> 首页</a>
+        </li>
+        <li class="active">用户管理</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content container-fluid" id="zabbix_user_list">
+    <!-- 页面内容开始 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+                <form id="search_form">
+                    <div class="box-header">
+                        <div class="col-sm-2" v-if="owned_permissions.add_zabbix_user">
+                            <button type="button" class="btn btn-info btn-sm" style="margin-left:-15px" data-target="#UserModal" data-toggle="modal" @click="clear_data()">添加zabbix用户</button>
+                        </div>
+                        <div class="col-sm-2" v-else></div>
+                        <div class="col-sm-8"></div>
+                        <div class="col-sm-2">
+                            <div class="input-group input-group-sm" style="width:150px;">
+                                <input type="text" name="keyword" class="form-control" placeholder="Search" v-model="keyword">
+                                <div class="input-group-btn">
+                                    <button type="button" class="btn btn-default" @click="get_user_list()"><i class="fa fa-search"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <!-- /.box-header -->
+                <div class="box-body">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                        <tr>
+                            <th>用户名</th>
+                            <th>所属组</th>
+                            <th>所属环境</th>
+                            <th>报警媒介</th>
+                            <th>发送地址及时间段</th>
+                            <th v-if="owned_permissions.delete_zabbix_user || owned_permissions.edit_zabbix_user">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="line in user_list">
+                                <td v-text="line.UserName" style="width:100px"></td>
+                                <td v-text="line.GroupName" style="width:180px"></td>
+                                <td v-text="line.Type" style="width:80px"></td>
+                                <td v-text="line.MediaName" style="width:100px"></td>
+                                <td v-text="line.SendtoPeriod" style="width:600px"></td>
+                                <td v-if="owned_permissions.delete_zabbix_user || owned_permissions.edit_zabbix_user"><span class="btn btn-danger btn-sm" @click="delete_user(line.Id,line.UserId,line.Type)" v-if="owned_permissions.delete_zabbix_user">删除</span> <span class="btn btn-primary btn-sm" @click="edit_user(line.UserId,line.GroupId,line.Type,line.MediaName)" data-target="#EditUserModal" data-toggle="modal" v-if="owned_permissions.edit_zabbix_user">编辑</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div id="pagination" class="pull-right"></div>
+                </div>
+                <!-- /.box-body -->
+            </div>
+        </div>
+    </div>
+    <!-- 页面内容结束 -->
+    <!--add user start-->
+    <div class="modal fade" id="UserModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel" v-text="title"></h4>
+                </div>
+                <form role="form" id="UserForm" class="form-horizontal">
+                    <div class="modal-body">
+                        <div class="box-body">
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">选择环境</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="environment" v-model="environment" @change="get_user_group()">
+                                        <option value="cn">国内</option>
+                                        <option value="foreign">国外</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputUserName" class="col-sm-2 control-label">用户名</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputUserName" name="UserName">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">用户组</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" multiple name="GroupIds" id="GroupName" style="width: 100%;">
+                                        <option v-for="line in user_group_list" :value="line.GroupId" v-text="line.GroupName"></option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!--
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">报警媒介</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" multiple name="MediaIds">
+                                        <option v-for="line in media_list" :value="line.MediaTypeId" v-text="line.MediaName"></option>
+                                    </select>
+                                </div>
+                            </div>
+                            -->
+                            <div class="form-group">
+                                <label for="inputSendto" class="col-sm-2 control-label">发送地址</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputSendto" name="Sendto" placeholder="企业微信id">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputPeriod" class="col-sm-2 control-label">发送时间</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputPeriod" name="Period" placeholder="默认1-7,00:00-24:00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">cancel</button>
+                        <button type="submit" class="btn btn-primary">save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!--add user end-->
+    <!--edit user start-->
+    <div class="modal fade" id="EditUserModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabe2">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabe2" v-text="title"></h4>
+                </div>
+                <form role="form" class="form-horizontal">
+                    <div class="modal-body">
+                        <div class="box-body">
+                            <label>已分配用户组（点击删除）</label>
+                            <select multiple="" class="form-control" id="allocateUserName">
+                                <option v-if="owned_user_group_list.length==0">暂时没有分配主机组</option>
+                                <option v-for="(line,index) in owned_user_group_list" @click="remove_user_group(index)" :value="line.GroupId">${line.GroupName}</option>
+                            </select>
+                            <label>未分配用户组（点击增加）</label>
+                            <select multiple="" class="form-control">
+                                <option v-if="unowned_user_group_list.length==0">无主机组可分配</option>
+                                <option v-for="(line,index) in unowned_user_group_list" @click="add_user_group(index)" :value="line.GroupId">${line.GroupName}</option>
+                            </select>
+                        </div>
+                        <div class="box-body">
+                            <div class="form-group" v-show="media_name == '-'">
+                                <input type="text" class="form-control" name="Sendto" placeholder="发送地址:企业微信id" style="width:550px;margin-left:16px" v-model="sendto">
+                            </div>
+                            <div class="form-group" v-show="media_name == '-'">
+                                <input type="text" class="form-control" name="Period" placeholder="发送时间:默认1-7,00:00-24:00" style="width:550px;margin-left:16px" v-model="period">
+                            </div>
+                        </div>
+                        <div v-if="tint" v-html="tint"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">cancel</button>
+                        <button type="button" class="btn btn-primary" @click="update_user()">save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!--edit user end-->
+</section>

@@ -1,0 +1,110 @@
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        zabbix管理
+        <small>zabbix用户组列表</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li>
+            <a href="{{urlfor "HomeController.Index"}}">
+                <i class="fa fa-dashboard"></i> 首页</a>
+        </li>
+        <li class="active">用户组管理</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content container-fluid" id="zabbix_user_group_list">
+    <!-- 页面内容开始 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+                <form id="search_form">
+                    <div class="box-header">
+                        <div class="col-sm-2" v-if="owned_permissions.add_zabbix_user_group">
+                            <button type="button" class="btn btn-info btn-sm" style="margin-left:-15px" data-target="#UserGroupModal" data-toggle="modal" @click="clear_data()">添加zabbix用户组</button>
+                        </div>
+                        <div class="col-sm-2" v-else></div>
+                        <div class="col-sm-8"></div>
+                        <div class="col-sm-2">
+                            <div class="input-group input-group-sm" style="width:150px;">
+                                <input type="text" name="keyword" class="form-control" placeholder="Search" v-model="keyword">
+                                <div class="input-group-btn">
+                                    <button type="button" class="btn btn-default" @click="get_user_group_list()"><i class="fa fa-search"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <!-- /.box-header -->
+                <div class="box-body">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                        <tr>
+                            <th>用户组名称</th>
+                            <th>用户组状态</th>
+                            <th>所属环境</th>
+                            <th v-if="owned_permissions.delete_zabbix_user_group || owned_permissions.edit_zabbix_user_group || owned_permissions.change_zabbix_user_group">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="line in user_group_list">
+                                <td v-text="line.GroupName"></td>
+                                <td><span v-if="!line.GroupStatus" class="label label-success">有效</span><span v-else class="label label-danger">无效</span></td>
+                                <td v-text="line.Type"></td>
+                                <td v-if="owned_permissions.delete_zabbix_user_group || owned_permissions.edit_zabbix_user_group || owned_permissions.change_zabbix_user_group"><span class="btn btn-danger btn-sm" @click="delete_user_group(line.Id,line.GroupId,line.Type)" v-if="owned_permissions.delete_zabbix_user_group">删除</span> <span class="btn btn-primary btn-sm" @click="edit_user_group(line.Id,line.GroupId,line.GroupName,line.Type)" v-if="owned_permissions.edit_zabbix_user_group">编辑</span>
+                                    <span class="btn btn-warning btn-sm" v-if="!line.GroupStatus" @click="change_status(line.GroupId,line.Type,line.GroupStatus)" v-show="owned_permissions.change_zabbix_user_group">禁用</span> <span class="btn btn-success btn-sm" v-else @click="change_status(line.GroupId,line.Type,line.GroupStatus)" v-show="owned_permissions.change_zabbix_user_group">启用</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div id="pagination" class="pull-right"></div>
+                </div>
+                <!-- /.box-body -->
+            </div>
+        </div>
+    </div>
+    <!-- 页面内容结束 -->
+    <!--add host group start-->
+    <div class="modal fade" id="UserGroupModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel" v-text="title"></h4>
+                </div>
+                <form role="form" id="UserGroupForm" class="form-horizontal">
+                    <div class="modal-body">
+                        <div class="box-body">
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">选择环境</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="environment" v-model="environment" v-if="environment">
+                                        <option value="cn">国内</option>
+                                        <option value="foreign">国外</option>
+                                    </select>
+                                    <select class="form-control" name="environment" v-else>
+                                        <option value="cn">国内</option>
+                                        <option value="foreign">国外</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputUserGroupName" class="col-sm-2 control-label">用户组名</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="inputUserGroupName" v-model="groupName" v-if="groupName">
+                                    <input type="text" class="form-control" id="inputUserGroupName" name="GroupName" placeholder="用户组名" v-else>
+                                </div>
+                            </div>
+                            <div v-if="tint" v-html="tint"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">cancel</button>
+                        <button type="button" class="btn btn-primary" v-if="is_edit" @click="update_group()">save</button>
+                        <button type="submit" class="btn btn-primary" v-else>save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!--add host group end-->
+</section>

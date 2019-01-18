@@ -1,0 +1,300 @@
+<!-- 用于列表页 -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="renderer" content="webkit">
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>CMDB</title>
+    <!-- Tell the browser to be responsive to screen width -->
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport"> 
+    {{template "shared/globalcss.html"}} 
+    {{.headcssjs}}
+</head>
+
+<body class="hold-transition skin-blue sidebar-mini">
+    <div class="wrapper">
+        <!-- Main Header -->
+        <header class="main-header" id="header_list">
+
+            <!-- Logo -->
+            <a href="{{ urlfor "HomeController.Index" }}" class="logo">
+                <!-- mini logo for sidebar mini 50x50 pixels -->
+                <span class="logo-mini">CMDB</span>
+                <!-- logo for regular state and mobile devices -->
+                <span class="logo-lg">CMDB系统</span>
+            </a>
+
+            <!-- Header Navbar -->
+            <nav class="navbar navbar-static-top">
+                <!-- Sidebar toggle button-->
+                <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
+                    <span class="sr-only">Toggle navigation</span>
+                </a>
+                <!-- Navbar Right Menu -->
+                <div class="navbar-custom-menu">
+                    <ul class="nav navbar-nav">
+                        <!-- Messages: style can be found in dropdown.less-->
+                        <!-- Notifications Menu -->
+                        <li class="dropdown messages-menu">
+                            <!-- Menu toggle button -->
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                <i class="fa fa-envelope-o"></i>
+                                <span class="label label-success" v-if="num" v-text="num"></span>
+                            </a>
+                            <ul class="dropdown-menu" style="width:400px">
+                                <li class="header" v-if="num">您有 ${num} 条消息需要查看</li>
+                                <li class="header" v-else>No news is good news,thank goodness!</li>
+                                <li>
+                                    <!-- Inner Menu: contains the notifications -->
+                                    <ul class="menu" v-if="message_list">
+                                        <li v-for="ip in message_list">
+                                            <!-- start notification -->
+                                            <a href="#">
+                                                <i class="fa fa-envelope-o text-aqua"></i><span>IP是${ip}的服务器即将过期，请及时处理。</span>
+                                            </a>
+                                        </li>
+                                        <!-- end notification -->
+                                    </ul>
+                                    <ul class="menu" v-else></ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <!-- Tasks Menu -->
+                        <li class="dropdown tasks-menu">
+                            <!-- Menu Toggle Button -->
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                <i class="fa fa-flag-o"></i>
+                                <span class="label label-danger">9</span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li class="header">您有 9 项任务</li>
+                                <li>
+                                    <!-- Inner menu: contains the tasks -->
+                                    <ul class="menu">
+                                        <li>
+                                            <!-- Task item -->
+                                            <a href="#">
+                                                <!-- Task title and progress text -->
+                                                <h3>
+                                                    当前进度（没有实质功能，留作将来扩展）
+                                                    <small class="pull-right">20%</small>
+                                                </h3>
+                                                <!-- The progress bar -->
+                                                <div class="progress xs">
+                                                    <!-- Change the css width attribute to simulate progress -->
+                                                    <div class="progress-bar progress-bar-aqua" style="width: 20%" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100">
+                                                        <span class="sr-only">20%</span>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </li>
+                                        <!-- end task item -->
+                                    </ul>
+                                </li>
+                                <li class="footer">
+                                    <a href="#">查看所有任务</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="dropdown user user-menu">
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                <img src="/static/img/avatar2.jpg" class="user-image" alt="User Image">
+                                <span class="hidden-xs">{{.user.UserName}}</span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <!-- User image -->
+                                <li class="user-header">
+                                    <img src="/static/img/avatar2.jpg" class="img-circle" alt="User Image">
+                                    <p>欢迎你,{{.user.UserName}}</p>
+                                    <p>祝你今天心情棒棒哒！</p>
+                                </li>
+                                <!-- Menu Footer-->
+                                <li class="user-footer">
+                                    <div class="pull-right">
+                                        <a href="{{ urlfor "HomeController.Logout" }}" class="btn btn-default btn-flat">退出</a>
+                                    </div>
+                                </li>
+                            </ul>
+                            <!-- /.dropdown-user -->
+                        </li>
+                        <!-- Control Sidebar Toggle Button -->
+                        <li>
+                            <a href="#" data-toggle="control-sidebar"><i class="fa fa-gears"></i></a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </header>
+        <!-- Left side column. contains the logo and sidebar -->
+        <aside class="main-sidebar" id="sidebar_list">
+                <!-- sidebar: style can be found in sidebar.less -->
+                <section class="sidebar">
+                    <!-- Sidebar Menu -->
+                    <ul class="sidebar-menu" id="pageSidebar">
+                        <li class="treeview" id="dashboard">
+                            <a href="{{ urlfor "HomeController.Index" }}">
+                                <i class="fa fa-dashboard"></i>
+                                <span>仪表盘</span>
+                            </a>
+                        </li>
+                        <li class="treeview" id="AssetManage">
+                            <a href="#">
+                                <i class="fa fa-server"></i>
+                                <span>资产管理</span>
+                                <span class="pull-right-container">
+                                    <i class="fa fa-angle-left pull-right"></i>
+                                </span>
+                            </a>
+                            <ul class="treeview-menu">
+                                <li {{ if .AssetMenu }} class="active" {{ end }}>
+                                    <a href="{{urlfor "AssetController.Index"}}"><i class="fa fa-circle-o"></i> 资产列表</a>
+                                </li>
+                                <li {{ if .AssetGroupMenu }} class="active" {{ end }}>
+                                    <a href="{{urlfor "AssetGroupController.Index"}}">
+                                        <i class="fa fa-circle-o"></i> 资产组列表</a>
+                                </li>
+                                <li {{ if .IdcMenu }} class="active" {{ end }}>
+                                    <a href="{{urlfor "IdcController.Index"}}">
+                                        <i class="fa fa-circle-o"></i> IDC列表</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="treeview" id="UserManage">
+                            <a>
+                                <i class="fa fa-user"></i>
+                                <span>用户管理</span>
+                                <span class="pull-right-container">
+                                    <i class="fa fa-angle-left pull-right"></i>
+                                </span>
+                            </a>
+                            <ul class="treeview-menu">
+                                <li {{ if .UserMenu }} class="active" {{ end }}>
+                                    <a href="{{urlfor "UserController.Index"}}">
+                                        <i class="fa fa-circle-o"></i> 用户列表</a>
+                                </li>
+                                <li {{ if .GroupMenu }} class="active" {{ end }}>
+                                    <a href="{{urlfor "RoleController.Index"}}">
+                                        <i class="fa fa-circle-o"></i> 用户组列表</a>
+                                </li>
+                                <li {{ if .PermissionMenu }} class="active" {{ end }} v-if="owned_permissions.select_permission">
+                                    <a href="{{urlfor "PermissionController.Index"}}">
+                                        <i class="fa fa-circle-o"></i> 权限列表</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="treeview" id="ZabbixManage">
+                            <a href="#">
+                                <i class="fa fa-cog"></i>
+                                <span>zabbix管理</span>
+                                <span class="pull-right-container">
+                                    <i class="fa fa-angle-left pull-right"></i>
+                                </span>
+                            </a>
+                            <ul class="treeview-menu">
+                                <li {{ if .zabbixHostMenu }} class="active" {{ end }}>
+                                    <a href="{{urlfor "ZabbixHostController.Index"}}">
+                                        <i class="fa fa-circle-o"></i> 主机管理</a>
+                                </li>
+                                <li {{ if .zabbixHostGroupMenu }} class="active" {{ end }}>
+                                    <a href='{{urlfor "ZabbixHostGroupController.Index"}}'>
+                                        <i class="fa fa-circle-o"></i> 主机组管理</a>
+                                </li>
+                                <li {{ if .zabbixTemplateMenu }} class="active" {{ end }}>
+                                    <a href='{{urlfor "ZabbixTemplateController.Index"}}'>
+                                        <i class="fa fa-circle-o"></i> 模板管理</a>
+                                </li>
+                                <li {{ if .zabbixUserMenu }} class="active" {{ end }}>
+                                    <a href='{{urlfor "ZabbixUserController.Index"}}'>
+                                        <i class="fa fa-circle-o"></i> 用户管理</a>
+                                </li>
+                                <li {{ if .zabbixUserGroupMenu }} class="active" {{ end }}>
+                                    <a href='{{urlfor "ZabbixUserGroupController.Index"}}'>
+                                        <i class="fa fa-circle-o"></i> 用户组管理</a>
+                                </li>
+                                <li {{ if .zabbixMediaMenu }} class="active" {{ end }}>
+                                    <a href='{{urlfor "ZabbixMediaController.Index"}}'>
+                                        <i class="fa fa-circle-o"></i> 媒介管理</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li id="LogCheck" v-if="owned_permissions.select_log">
+                            <a href="{{urlfor "LogController.Index"}}">
+                                <i class="fa fa-calendar-check-o"></i>
+                                <span>日志审计</span>
+                            </a>
+                        </li>
+                    </ul>
+                    <!-- /.sidebar-menu -->
+                </section>
+                <!-- /.sidebar -->
+        </aside>
+
+        <!-- Content Wrapper. Contains page content -->
+        <div class="content-wrapper">
+            {{.LayoutContent}}
+        </div>
+        <!-- /.content-wrapper -->
+
+        <!-- Main Footer -->
+        <footer class="main-footer">
+            <!-- To the right -->
+            <div class="pull-right hidden-xs">
+                如有意见或建议，请联系：rock@jollycorp.com
+            </div>
+            <!-- Default to the left -->
+            <strong>Copyright &copy; 2018 CMDB.All rights reserved.</strong>
+        </footer>
+        {{ template "shared/control-sidebar.html" }}
+    </div>
+    <!-- ./wrapper -->
+    {{template "shared/globaljs.html"}}
+    <script>
+        $(function () {
+            getAssetExpiredMessage();
+        });
+
+        data = {
+            owned_permissions: "",
+        };
+
+        data2 = {
+            message_list: [],
+            message: "",
+            num: "",
+        };
+
+        if("{{.permissionMap}}") {
+            permissionJson = JSON.parse("{{.permissionMap}}");
+            data.owned_permissions = permissionJson;
+        }
+
+        new Vue({
+            el: '#sidebar_list',
+            delimiters: ['${', '}'],
+            data: data,
+        });
+
+        new Vue({
+            el: '#header_list',
+            delimiters: ['${', '}'],
+            data: data2,
+        });
+
+        function getAssetExpiredMessage() {
+            $.ajax({
+                url:"{{urlfor "AssetController.GetExpiredAssetList"}}",
+                success:function(res){
+                    if (res) {
+                        data2.num = res.length;
+                        data2.message_list = res;
+                    }
+                }
+            })
+        }
+    </script>
+    {{.footerjs}}
+</body>
+
+</html>

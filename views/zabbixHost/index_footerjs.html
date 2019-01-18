@@ -1,0 +1,528 @@
+<script>
+    window.onload = function(){
+        load_host_list();
+        add_host();
+        load_template_list("foreign");
+        load_template_list("cn");
+        load_host_group_list("foreign");
+        load_host_group_list("cn");
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#ZabbixManage").addClass("active");
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}");
+        //实现全选反选
+        $("#theadInp").on('click', function() {
+            $("tbody input:checkbox").prop("checked", $(this).prop('checked'));
+        });
+        $("tbody input:checkbox").on('click', function() {
+            //当选中的长度等于checkbox的长度的时候,就让控制全选反选的checkbox设置为选中,否则就为未选中
+            if($("tbody input:checkbox").length === $("tbody input:checked").length) {
+                $("#theadInp").prop("checked", true);
+            } else {
+                $("#theadInp").prop("checked", false);
+            }
+        });
+        $("#GroupName").select2({
+            dropdownParent:$("#AddHostModal"),
+        });
+        $("#TemplateName").select2({
+            dropdownParent:$("#AddHostModal"),
+        });
+    };
+    data = {
+        keyword: "",
+        host_list: "",
+        host_group_list: [],
+        template_list: [],
+        foreign_template_list: [],
+        cn_template_list: [],
+        foreign_host_group_list: [],
+        cn_host_group_list: [],
+        environment: "cn",
+        is_edit: false,
+        //host_type: "主机环境",
+        //host_status: "主机状态",
+        InterfaceAddr: "IP",
+        InterfaceType: "1",
+        InterfaceTypeList: [],
+        InterfaceValue: "",
+        owned_template_list: [],
+        unowned_template_list: [],
+        owned_host_group_list: [],
+        unowned_host_group_list: [],
+        edited_host_info: [],
+        allocate_host_group_list: [],
+        allocate_template_list: [],
+        HostId: "",
+        old_host_group_list: [],
+        old_template_list: [],
+        old_interface_type: [],
+        EditedEnvironment: "",
+        hostname: "",
+        visible_name: "",
+        old_hostname: "",
+        old_visible_name: ""
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#zabbix_host_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            get_host_list: function(){
+                get_host_list(this.keyword);
+            },
+            load_data: function(){
+                this.template_list = this.cn_template_list;
+                this.host_group_list = this.cn_host_group_list;
+                load_host_group_list(this.environment);
+                load_template_list(this.environment);
+            },
+            load_group_and_template: function(){
+                if(this.environment === "foreign") {
+                    this.template_list = this.foreign_template_list;
+                    this.host_group_list = this.foreign_host_group_list;
+                } else if(this.environment === "cn") {
+                    this.template_list = this.cn_template_list;
+                    this.host_group_list = this.cn_host_group_list;
+                }
+            },
+            delete_host: function(Id,HostId,Type){
+                delete_host(Id,HostId,Type);
+            },
+            change_status: function(HostId,HostStatus,Type){
+                change_status(HostId,HostStatus,Type);
+            },
+            edit_host: function(id,Type,GroupId,TemplateId,HostName,VisibleName){
+                this.hostname = $.trim(HostName);
+                this.visible_name = $.trim(VisibleName);
+                this.old_hostname = $.trim(HostName);
+                this.old_visible_name = $.trim(VisibleName);
+                if(this.host_list) {
+                    this.host_list.forEach(function(value,index,arr){
+                        if(id === value.Id){
+                            data.HostId = value.HostId;
+                            data.EditedEnvironment = value.Type;
+                            if(value.GroupId) {
+                                if(value.GroupId.indexOf(",") !== -1){
+                                    data.old_host_group_list = value.GroupId.split(",")
+                                } else {
+                                    data.old_host_group_list = [];
+                                    data.old_host_group_list.push(value.GroupId)
+                                }
+                            }
+                            if(value.TemplateId) {
+                                if(value.TemplateId.indexOf(",") !== -1){
+                                    data.old_template_list = value.TemplateId.split(",")
+                                } else {
+                                    data.old_template_list = [];
+                                    data.old_template_list.push(value.TemplateId)
+                                }
+                            }
+                            if(value.InterfaceType) {
+                                if(value.InterfaceType.indexOf(",") !== -1){
+                                    data.InterfaceTypeList = value.InterfaceType.split(",");
+                                    data.old_interface_type = value.InterfaceType.split(",")
+                                } else {
+                                    data.old_interface_type = [];
+                                    data.old_interface_type.push(value.InterfaceType);
+                                    data.InterfaceTypeList = [];
+                                    data.InterfaceTypeList.push(value.InterfaceType);
+                                }
+                            }
+                        }
+                    })
+                }
+                this.owned_template_list = [];
+                this.unowned_template_list = [];
+                this.owned_host_group_list = [];
+                this.unowned_host_group_list = [];
+                edit_host(Type,GroupId,TemplateId);
+            },
+            add_host_group: function(index){
+                this.owned_host_group_list.push(this.unowned_host_group_list[index]);
+                this.unowned_host_group_list.splice(index,1);
+            },
+            remove_host_group: function(index){
+                this.unowned_host_group_list.push(this.owned_host_group_list[index]);
+                this.owned_host_group_list.splice(index,1);
+            },
+            add_template: function(index){
+                this.owned_template_list.push(this.unowned_template_list[index]);
+                this.unowned_template_list.splice(index,1);
+            },
+            remove_template: function(index){
+                this.unowned_template_list.push(this.owned_template_list[index]);
+                this.owned_template_list.splice(index,1);
+            },
+            modify_host: function(){
+                modify_host(this.HostId, this.EditedEnvironment);
+            },
+            mass_delete_host: function(){
+                mass_delete_host();
+            }
+        },
+        watch: {
+            owned_host_group_list: function (newVal, oldVal) {
+                data.allocate_host_group_list = [];
+                $(newVal).each(function(idx,v) {
+                    data.allocate_host_group_list.push(v.GroupId);
+                });
+            },
+            owned_template_list: function (newVal, oldVal) {
+                data.allocate_template_list = [];
+                $(newVal).each(function(idx,v) {
+                    data.allocate_template_list.push(v.TemplateId);
+                });
+            },
+        }
+    });
+
+    function mass_delete_host() {
+        var cnHostIdArr = [];
+        var foreignHostIdArr = [];
+        $("tbody input:checkbox").each(function(){
+            if($(this).prop("checked")){
+                hostId = $(this).siblings("input[type=hidden]").text();
+                environment = $.trim($(this).parent().siblings("td").eq(4).text());
+                if(environment === "cn"){
+                    cnHostIdArr.push(hostId)
+                } else if(environment === "foreign"){
+                    foreignHostIdArr.push(hostId)
+                }
+            }
+        });
+        if(cnHostIdArr.length === 0 && foreignHostIdArr.length === 0){
+            layer.alert("请选择要删除的主机！", {icon: 6, title: '错误'})
+        } else {
+            layer.confirm("确定要删除这批主机吗？",{title:"删除确认"},function() {
+                $.ajax({
+                    url: "{{urlfor "ZabbixHostController.DoZabbixHost"}}",
+                    type: "post",
+                    data: {"cnHostId": JSON.stringify(cnHostIdArr), "foreignHostId": JSON.stringify(foreignHostIdArr)},
+                    success: function (res) {
+                        if (res.Status === "fail") {
+                            layer.alert(res.Msg, {icon: 6, title: '错误'})
+                        } else {
+                            window.location.reload();
+                        }
+                    }
+                })
+            })
+        }
+
+    }
+    function modify_host(HostId, EditedEnvironment) {
+        if(data.old_host_group_list.sort().toString() === data.allocate_host_group_list.sort().toString() && data.old_template_list.sort().toString() === data.allocate_template_list.sort().toString() &&
+                data.old_interface_type.sort().toString() === data.InterfaceTypeList.sort().toString() && $.trim(data.hostname) === data.old_hostname && $.trim(data.visible_name) === data.old_visible_name)  {
+            return false;
+        }
+        if(data.old_host_group_list.sort().toString() !== data.allocate_host_group_list.sort().toString()){
+            allocate_host_group_list = data.allocate_host_group_list;
+        } else {
+            allocate_host_group_list = [];
+        }
+        if(data.old_template_list.sort().toString() !== data.allocate_template_list.sort().toString()) {
+            allocate_template_list = data.allocate_template_list;
+        } else {
+            allocate_template_list = [];
+        }
+        // if(data.old_interface_type.sort().toString() !== data.InterfaceTypeList.sort().toString()){
+        //     interface_type_list = data.InterfaceTypeList;
+        // } else {
+        //     interface_type_list = [];
+        // }
+        var AllocateGroupNames = "";
+        var AllocateTemplateNames = "";
+        $("#allocateGroupName option").each(function(){
+            if(AllocateGroupNames === ""){
+                AllocateGroupNames += $(this).text();
+            } else {
+                AllocateGroupNames += "," + $(this).text();
+            }
+        });
+        $("#allocateTemplateName option").each(function(){
+            if(AllocateTemplateNames === ""){
+                AllocateTemplateNames += $(this).text();
+            } else {
+                AllocateTemplateNames += "," + $(this).text();
+            }
+        });
+        $.ajax({
+            url: "{{urlfor "ZabbixHostController.DoZabbixHost"}}",
+            type: "post",
+            data: {"EditedEnvironment":EditedEnvironment,"HostId": HostId,"allocate_host_group_list": JSON.stringify(allocate_host_group_list),
+                "allocate_template_list": JSON.stringify(allocate_template_list),"AllocateGroupNames": AllocateGroupNames,"AllocateTemplateNames":
+                AllocateTemplateNames,"HostName": data.hostname, "VisibleName": data.visible_name},
+            success: function (res) {
+                if (res.Status === "fail") {
+                    layer.alert(res.Msg, {icon: 6, title: '错误'})
+                } else {
+                    window.location.reload();
+                }
+            }
+        })
+    }
+
+    function edit_host(Type,group_id,template_id){
+        owned_template_id_list = template_id.split(",");
+        owned_group_id_list = group_id.split(",");
+        if(Type === "foreign"){
+            data.template_list = data.foreign_template_list;
+            data.host_group_list = data.foreign_host_group_list;
+        } else if(Type === "cn") {
+            data.template_list = data.cn_template_list;
+            data.host_group_list = data.cn_host_group_list;
+        }
+        data.template_list.forEach(function(value,index,arr){
+            TemplateId = value.TemplateId;
+            TemplateName = value.TemplateName;
+            index2 = $.inArray(TemplateId.toString(),owned_template_id_list);
+            if(index2 >= 0) {
+                data.owned_template_list.push({
+                    "TemplateId": TemplateId,
+                    "TemplateName": TemplateName,
+                })
+            } else {
+                data.unowned_template_list.push({
+                    "TemplateId": TemplateId,
+                    "TemplateName": TemplateName,
+                })
+            }
+        });
+        data.host_group_list.forEach(function(value,index,arr){
+            GroupId = value.GroupId;
+            GroupName = value.GroupName;
+            index2 = $.inArray(GroupId.toString(),owned_group_id_list);
+            if(index2 >= 0) {
+                data.owned_host_group_list.push({
+                    "GroupId": GroupId,
+                    "GroupName": GroupName,
+                })
+            } else {
+                data.unowned_host_group_list.push({
+                    "GroupId": GroupId,
+                    "GroupName": GroupName,
+                })
+            }
+        });
+    }
+
+    function change_status(HostId,HostStatus,Type) {
+        layer.confirm("确定要修改该主机状态吗？",{title:"修改确认"},function() {
+            $.ajax({
+                url: "{{urlfor "ZabbixHostController.DoZabbixHost"}}",
+                type: "post",
+                data: {"HostId": HostId,"HostStatus": HostStatus,"Type": Type},
+                success: function (res) {
+                    if (res.Status === "fail") {
+                        layer.alert(res.Msg, {icon: 6, title: '错误'})
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            })
+        })
+    }
+
+    function delete_host(Id,HostId,Type) {
+        layer.confirm("确定要删除该主机吗？",{title:"删除确认"},function() {
+            $.ajax({
+                url: "{{urlfor "ZabbixHostController.DoZabbixHost"}}",
+                type: "post",
+                data: {"Id":Id,"HostId": HostId,"Type":Type},
+                success: function (res) {
+                    if (res.Status === "fail") {
+                        layer.alert(res.Msg, {icon: 6, title: '错误'})
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            })
+        })
+    }
+
+    function page(totalPage,count,keyword){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_host_list(page,keyword);
+            }
+        });
+    }
+
+    function get_host_list(keyword){
+        if ($.trim(keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "ZabbixHostController.GetHostList"}}",
+            data:{"keyword": $.trim(keyword)},
+            success:function(res){
+                data.host_list = res;
+                count = "{{.number}}";
+                if(data.host_list){
+                    total = data.host_list[0]["Count"];
+                    totalPage = Math.ceil(total/count);
+                    page(totalPage,count,keyword);
+                } else {
+                    page(0,count,keyword);
+                }
+            }
+        })
+    }
+
+    function load_host_list(page,keyword){
+        $.ajax({
+            url:"{{urlfor "ZabbixHostController.GetHostList"}}",
+            data: {"page":page,"keyword":keyword},
+            success:function(res){
+                data.host_list = res;
+            }
+        })
+    }
+
+    function load_host_group_list(environment) {
+        $.ajax({
+            url:"{{urlfor "ZabbixHostGroupController.GetHostGroupList"}}",
+            data: {"environment":environment},
+            success:function(res){
+                if(environment === "foreign"){
+                    data.foreign_host_group_list = res;
+                } else if (environment === "cn"){
+                    data.cn_host_group_list = res;
+                }
+            }
+        })
+    }
+
+    function load_template_list(environment) {
+        $.ajax({
+            url:"{{urlfor "ZabbixTemplateController.GetTemplateList"}}",
+            data: {"environment":environment},
+            success:function(res){
+                if(environment === "foreign"){
+                    data.foreign_template_list = res;
+                } else if (environment === "cn"){
+                    data.cn_template_list = res;
+                }
+            }
+        })
+    }
+
+    // 自定义IP验证
+    $.validator.addMethod("checkIPFormat", function(value, element) {
+        var ip = /((25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))/;
+        return this.optional(element) || (ip.test(value));
+    }, "IP格式不正确");
+
+    function add_host(){
+        var $addHostForm= $('#addHostForm');
+        var rules = {
+            HostName: {
+                maxlength: 64,
+                required: true
+            },
+            VisibleName: {
+                maxlength: 64,
+                required: true
+            },
+            InterfaceValue: {
+                maxlength: 32,
+                required: true
+            },
+            GroupIds: {
+                maxlength: 256,
+                required: true
+            },
+            TemplateIds: {
+                maxlength: 256,
+                required: true
+            },
+        };
+        var messages = {
+            HostName: {
+                maxlength: "长度不能大于64位",
+                required: "请输入主机名称"
+            },
+            VisibleName: {
+                maxlength: "长度不能大于64位",
+                required: "请输入显示名称"
+            },
+            InterfaceValue: {
+                maxlength: "长度不能大于32位",
+                required: "请输入接口方式的值",
+            },
+            GroupIds: {
+                maxlength: "长度不能大于256位",
+                required: "请选择主机组"
+            },
+            TemplateIds: {
+                maxlength: "长度不能大于256位",
+                required: "请选择模板"
+            },
+        };
+
+        $addHostForm.sdvalidate({
+            rules: rules,
+            messages: messages,
+            highlight: function(element,errorClass){
+                $(element).css('border','2px solid red');
+            },
+            unhighlight: function(element,errorClass){
+                $(element).css('border','1px solid green');
+            },
+            submitHandler: function (form) {
+                var GroupNames = "";
+                var TemplateNames = "";
+                $("#GroupName option:selected").each(function(){
+                    if(GroupNames===""){
+                        GroupNames += $(this).text();
+                    } else {
+                        GroupNames += "," + $(this).text();
+                    }
+                });
+                $("#TemplateName option:selected").each(function(){
+                    if(TemplateNames===""){
+                        TemplateNames += $(this).text();
+                    } else {
+                        TemplateNames += "," + $(this).text();
+                    }
+                });
+                var url = '{{urlfor "ZabbixHostController.DoZabbixHost"}}';
+                var FormData = $.param({"GroupNames":GroupNames,"TemplateNames":TemplateNames})+'&'+$addHostForm.serialize();
+                $.ajax({
+                    type:"post",
+                    async:true,
+                    data:FormData,
+                    url:url,
+                    dataType:"json",
+                    success: function(res){
+                        if(res.Status === "ok") {
+                            window.location.reload();
+                        } else {
+                            layer.alert(res.Msg, {icon:6,title:'提示'})
+                        }
+                    }
+                });
+                return false;
+            }
+        });
+    }
+</script>

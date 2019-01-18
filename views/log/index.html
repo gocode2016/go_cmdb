@@ -1,0 +1,63 @@
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        日志审计
+        <small>日志列表</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li>
+            <a href="{{urlfor "HomeController.Index"}}">
+                <i class="fa fa-dashboard"></i> 首页</a>
+        </li>
+        <li class="active">日志审计</li>
+    </ol>
+</section>
+<!-- Main content -->
+<section class="content container-fluid" id="log_list">
+    <!-- 页面内容开始 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+                <form id="search_form">
+                    <div class="box-header">
+                        <div class="col-sm-10">
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="input-group input-group-sm" style="width:150px;">
+                                <input type="text" name="keyword" class="form-control" placeholder="Search" v-model="keyword">
+                                <div class="input-group-btn">
+                                    <button type="button" class="btn btn-default" onclick="get_log_list()"><i class="fa fa-search"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <!-- /.box-header -->
+                <div class="box-body">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                <th>操作人</th>
+                                <th>IP</th>
+                                <th>日志内容</th>
+                                <th>操作时间<span class="caret" @click="sort_by_time($event)"></span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="line in log_list">
+                                <td v-text="line.Name"></td>
+                                <td v-text="line.Ip"></td>
+                                <td v-text="line.Content"></td>
+                                <td v-text="line.CreateTime"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div id="pagination" class="pull-right"></div>
+                </div>
+                <!-- /.box-body -->
+            </div>
+        </div>
+    </div>
+    <!-- 页面内容结束 -->
+    <!--end-->
+</section>

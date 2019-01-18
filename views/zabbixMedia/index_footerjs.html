@@ -1,0 +1,80 @@
+<script>
+    window.onload = function(){
+        load_media_list();
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#ZabbixManage").addClass("active");
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}","");
+    };
+    data = {
+        keyword: "",
+        media_list: [],
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#zabbix_media_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            get_media_list: function(){
+                get_media_list(this.keyword);
+            },
+        }
+    });
+
+    function page(totalPage,count,keyword){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_media_list(page,keyword);
+            }
+        });
+    }
+
+    function get_media_list(keyword){
+        if ($.trim(keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "ZabbixMediaController.GetMediaList"}}",
+            data:{"keyword": $.trim(keyword)},
+            success:function(res){
+                data.media_list = res;
+                count = "{{.number}}";
+                if(data.media_list){
+                    total = data.media_list[0]["Count"];
+                    totalPage = Math.ceil(total/count);
+                    page(totalPage,count,keyword);
+                } else {
+                    page(0,count,keyword);
+                }
+            }
+        })
+    }
+
+    function load_media_list(page,keyword) {
+        $.ajax({
+            url:"{{urlfor "ZabbixMediaController.GetMediaList"}}",
+            data: {"page":page,"keyword":keyword},
+            success:function(res){
+                data.media_list = res;
+            }
+        })
+    }
+</script>

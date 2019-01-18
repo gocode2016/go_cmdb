@@ -1,0 +1,218 @@
+<script>
+    window.onload = function(){
+        load_user_group_list();
+        add_user_group();
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#ZabbixManage").addClass("active");
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}","");
+    };
+    data = {
+        keyword: "",
+        user_group_list: [],
+        title: "",
+        environment: "",
+        groupName: "",
+        groupId: "",
+        oldGroupName: "",
+        tint: "",
+        is_edit: false,
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#zabbix_user_group_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            get_user_group_list: function(){
+                get_user_group_list(this.keyword);
+            },
+            clear_data: function(){
+                this.environment = "cn";
+                this.groupName = "";
+                this.tint = "";
+                this.is_edit = false;
+                this.title = "添加zabbix用户组";
+            },
+            delete_user_group: function(Id, GroupId, Type){
+                delete_user_group(Id, GroupId, Type);
+            },
+            edit_user_group: function(Id,groupId,groupName,Type){
+                this.tint = "";
+                this.title = "编辑zabbix用户组";
+                this.environment = Type;
+                this.groupName = groupName;
+                this.groupId = groupId;
+                this.oldGroupName = groupName;
+                this.is_edit = true;
+                $("#inputUserGroupName").removeAttr("style").removeAttr("aria-required").removeAttr("aria-describedby");
+                $("#inputUserGroupName-error").remove();
+                $("#UserGroupModal").modal("show");
+            },
+            update_group: function(){
+                update_group(this.groupId, this.environment, this.oldGroupName);
+            },
+            change_status: function(groupId,type,groupStatus){
+                change_status(groupId,type,groupStatus);
+            }
+        }
+    });
+
+    function change_status(groupId,type,groupStatus) {
+        $.ajax({
+            url: "{{urlfor "ZabbixUserGroupController.DoZabbixUserGroup"}}",
+            type: "post",
+            data: {"GroupId": groupId,"environment":type,"GroupStatus":groupStatus},
+            success: function (res) {
+                if (res.Status === "fail") {
+                    layer.alert(res.Msg, {icon: 6, title: '错误'})
+                } else {
+                    window.location.reload();
+                }
+            }
+        })
+    }
+
+    function update_group(groupId, environment, oldGroupName) {
+        groupName = $("#inputUserGroupName").val();
+        if($.trim(groupName) === $.trim(oldGroupName)){
+            data.tint = "<strong style='color:red'>用户组名称没有更改！</strong>";
+            return false;
+        }
+        if($.trim(groupName) === ""){
+            data.tint = "<strong style='color:red'>用户组名称不能为空！</strong>";
+            return false;
+        }
+        $.ajax({
+            url: "{{urlfor "ZabbixUserGroupController.DoZabbixUserGroup"}}",
+            type: "post",
+            data: {"GroupId": groupId, "GroupName": groupName, "environment":environment},
+            success: function (res) {
+                if (res.Status === "fail") {
+                    layer.alert(res.Msg, {icon: 6, title: '错误'})
+                } else {
+                    window.location.reload();
+                }
+            }
+        })
+    }
+
+    function delete_user_group(Id,GroupId,Type) {
+        layer.confirm("确定要删除该用户组吗？",{title:"删除确认"},function() {
+            $.ajax({
+                url: "{{urlfor "ZabbixUserGroupController.DoZabbixUserGroup"}}",
+                type: "post",
+                data: {"Id":Id,"GroupId": GroupId,"environment":Type},
+                success: function (res) {
+                    if (res.Status === "fail") {
+                        layer.alert(res.Msg, {icon: 6, title: '错误'})
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            })
+        })
+    }
+
+    function page(totalPage,count,keyword){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_user_group_list(page,keyword);
+            }
+        });
+    }
+
+    function get_user_group_list(keyword){
+        if ($.trim(keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "ZabbixUserGroupController.GetUserGroupList"}}",
+            data:{"keyword": $.trim(keyword)},
+            success:function(res){
+                data.user_group_list = res;
+                count = "{{.number}}";
+                if(data.user_group_list){
+                    total = data.user_group_list[0]["Count"];
+                    totalPage = Math.ceil(total/count);
+                    page(totalPage,count,keyword);
+                } else {
+                    page(0,count,keyword);
+                }
+            }
+        })
+    }
+
+    function load_user_group_list(page,keyword) {
+        $.ajax({
+            url:"{{urlfor "ZabbixUserGroupController.GetUserGroupList"}}",
+            data: {"page":page,"keyword":keyword},
+            success:function(res){
+                data.user_group_list = res;
+            }
+        })
+    }
+
+    function add_user_group(){
+        var $UserGroupForm= $('#UserGroupForm');
+        var rules = {
+            GroupName: {
+                maxlength: 64,
+                required: true
+            },
+        };
+        var messages = {
+            GroupName: {
+                maxlength: "长度不能大于64位",
+                required: "请输入用户组名称"
+            },
+        };
+
+        $UserGroupForm.sdvalidate({
+            rules: rules,
+            messages: messages,
+            highlight: function(element,errorClass){
+                $(element).css('border','2px solid red');
+            },
+            unhighlight: function(element,errorClass){
+                $(element).css('border','1px solid green');
+            },
+            submitHandler: function (form) {
+                var url = '{{urlfor "ZabbixUserGroupController.DoZabbixUserGroup"}}';
+                var FormData = $UserGroupForm.serialize();
+                $.ajax({
+                    type:"post",
+                    async:true,
+                    data:FormData,
+                    url:url,
+                    dataType:"json",
+                    success: function(res){
+                        if(res.Status === "ok") {
+                            window.location.reload();
+                        } else {
+                            layer.alert(res.Msg, {icon:6,title:'提示'})
+                        }
+                    }
+                });
+                return false;
+            }
+        });
+    }
+</script>

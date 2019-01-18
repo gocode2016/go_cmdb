@@ -1,0 +1,512 @@
+<script>
+    window.onload = function(){
+        load_asset_list();
+        load_idc_list();
+        load_asset_group_list();
+        add_asset();
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#AssetManage").addClass("active");
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}");
+    };
+    data = {
+        idc_list:"",
+        group_list:"",
+        asset_list:"",
+        asset_info_list:"",
+        edit_asset_list:"",
+        owned_group_list:[],
+        unowned_group_list:[],
+        unowned_idc_list:[],
+        owned_idc_list:[],
+        errMsg:"",
+        keyword:"",
+        title:"",
+        Hostname:"",
+        InnerIp:"",
+        OuterIp:"",
+        Os:"",
+        OsRelease:"",
+        Cpu:"",
+        Memory:"",
+        Disk:"",
+        Sn:"",
+        AssetType:"",
+        Manufacturer:"",
+        Model:"",
+        AssetNumber:"",
+        CabinetNumber:"",
+        CabinetPosition:"",
+        IsPublisher:"",
+        AssetEnvironment:"",
+        AssetStatus:"",
+        Applications:"",
+        IdcName:"",
+        ExpireTime:"",
+        Comment:"",
+        OpManager:"",
+        asset_status:"主机状态",
+        idc:"IDC机房",
+        owned_permissions: "",
+        JdkVersion: "",
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#asset_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            show_asset_info: function(id){
+                show_asset_info(id,this.asset_list);
+            },
+            clear_edit_asset: function(){
+                this.unowned_group_list = [];
+                this.owned_group_list = [];
+                this.owned_idc_list = [];
+                this.unowned_idc_list = [];
+                this.Hostname = "";
+                this.InnerIp = "";
+                this.OuterIp = "";
+                this.Os = "";
+                this.OsRelease = "";
+                this.Cpu = "";
+                this.Memory = "";
+                this.Disk = "";
+                this.Sn = "";
+                this.AssetType = "";
+                this.Manufacturer = "";
+                this.Model = "";
+                this.AssetNumber = "";
+                this.CabinetNumber = "";
+                this.CabinetPosition = "";
+                this.IsPublisher = "";
+                this.AssetEnvironment = "";
+                this.AssetStatus = "";
+                this.IdcName = "";
+                this.Applications = "";
+                this.ExpireTime = "";
+                this.Comment = "";
+                this.OpManager = "";
+                this.JdkVersion = "";
+                this.title = "资产录入";
+                this.edit_asset_list = [];
+            },
+            edit_asset: function(id){
+                this.unowned_group_list = [];
+                this.owned_group_list = [];
+                this.owned_idc_list = [];
+                this.unowned_idc_list = [];
+                this.title = "资产编辑";
+                data.errMsg = "";
+                edit_asset(id,this.asset_list);
+            },
+            modify_asset: function(){
+                modify_asset();
+            },
+            delete_asset: function(id){
+                delete_asset(id);
+            },
+            get_asset_list: function(){
+                get_asset_list(this.idc,this.asset_status,this.keyword)
+            },
+        },
+    });
+    function page(totalPage,count,idc,asset_status,keyword){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_asset_list(page,idc,asset_status,keyword);
+            }
+        });
+    }
+
+    function get_asset_list(idc,asset_status,keyword){
+        if(idc === "IDC机房") {
+            idc = "";
+        }
+        if(asset_status === "主机状态"){
+            asset_status = "";
+        }
+        $.ajax({
+            url:"{{urlfor "AssetController.GetAssetList"}}",
+            type:"get",
+            data:{"idc":idc,"asset_status":asset_status,"keyword":keyword},
+            success:function(res){
+                if(res.Status === "fail"){
+                    data.asset_list = [];
+                    $("#pagination").css("display","none");
+                } else {
+                    data.asset_list = res;
+                    count = "{{.number}}";
+                    total = data.asset_list[0]["Count"];
+                    totalPage = Math.ceil(total/count);
+                    page(totalPage,count,idc,asset_status,keyword);
+                }
+            }
+        });
+    }
+
+    function delete_asset(id){
+        layer.confirm("确定要删除该资产吗？",{title:"删除确认"},function() {
+            $.ajax({
+                url: "{{urlfor "AssetController.DoAsset"}}",
+                type: "post",
+                data: {"id": id},
+                success: function (res) {
+                    if (res.Status === "fail") {
+                        layer.alert(res.Msg, {icon: 6, title: '错误'})
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            })
+        })
+    }
+
+    function modify_asset(){
+        var modify_asset_list = [];
+        var AssetGroupName = "";
+        var IsPublisher = $("input[type='radio']:checked").val();
+        $("#group_select option:selected").each(function(){
+            if(AssetGroupName===""){
+                AssetGroupName += $(this).text();
+            } else {
+                AssetGroupName += "," + $(this).text();
+            }
+        });
+        var IdcName = $.trim($("#idc_select option:selected").text());
+        var ExpireTime = $.trim($("#inputExpireTime").val());
+        var value = data.edit_asset_list;
+        if(IdcName === "IDC机房"){
+            IdcName = "";
+        }
+        if($.trim(value.Hostname) !== $.trim(data.Hostname)){
+            modify_asset_list.push({"Hostname":{"oldValue":value.Hostname,"newValue":$.trim(data.Hostname)}});
+        }
+        if($.trim(value.InnerIp) !== $.trim(data.InnerIp)){
+            modify_asset_list.push({"InnerIp":{"oldValue":value.InnerIp,"newValue":$.trim(data.InnerIp)}});
+        }
+        if($.trim(value.OuterIp) !== $.trim(data.OuterIp)){
+            modify_asset_list.push({"OuterIp":{"oldValue":value.OuterIp,"newValue":$.trim(data.OuterIp)}});
+        }
+        if($.trim(value.Os) !== $.trim(data.Os)){
+            modify_asset_list.push({"Os":{"oldValue":value.Os,"newValue":$.trim(data.Os)}});
+        }
+        if($.trim(value.OsRelease) !== $.trim(data.OsRelease)){
+            modify_asset_list.push({"OsRelease":{"oldValue":value.OsRelease,"newValue":$.trim(data.OsRelease)}});
+        }
+        if($.trim(value.Cpu) !== $.trim(data.Cpu)){
+            modify_asset_list.push({"Cpu":{"oldValue":value.Cpu,"newValue":$.trim(data.Cpu)}});
+        }
+        if($.trim(value.Memory) !== $.trim(data.Memory)){
+            modify_asset_list.push({"Memory":{"oldValue":value.Memory,"newValue":$.trim(data.Memory)}});
+        }
+        if($.trim(value.Disk) !== $.trim(data.Disk)){
+            modify_asset_list.push({"Disk":{"oldValue":value.Disk,"newValue":$.trim(data.Disk)}});
+        }
+        if($.trim(value.Sn) !== $.trim(data.Sn)){
+            modify_asset_list.push({"Sn":{"oldValue":value.Sn,"newValue":$.trim(data.Sn)}});
+        }
+        if($.trim(value.AssetType) !== $.trim(data.AssetType)){
+            modify_asset_list.push({"AssetType":{"oldValue":value.AssetType,"newValue":$.trim(data.AssetType)}});
+        }
+        if($.trim(value.Manufacturer) !== $.trim(data.Manufacturer)){
+            modify_asset_list.push({"Manufacturer":{"oldValue":value.Manufacturer,"newValue":$.trim(data.Manufacturer)}});
+        }
+        if($.trim(value.Model) !== $.trim(data.Model)){
+            modify_asset_list.push({"Model":{"oldValue":value.Model,"newValue":$.trim(data.Model)}});
+        }
+        if($.trim(value.AssetNumber) !== $.trim(data.AssetNumber)){
+            modify_asset_list.push({"Sn":{"oldValue":value.Sn,"newValue":$.trim(data.Sn)}});
+        }
+        if($.trim(value.CabinetNumber) !== $.trim(data.CabinetNumber)){
+            modify_asset_list.push({"CabinetNumber":{"oldValue":value.CabinetNumber,"newValue":$.trim(data.CabinetNumber)}});
+        }
+        if($.trim(value.CabinetPosition) !== $.trim(data.CabinetPosition)){
+            modify_asset_list.push({"CabinetPosition":{"oldValue":value.CabinetPosition,"newValue":$.trim(data.CabinetPosition)}});
+        }
+        if(Number(value.IsPublisher) !== Number(IsPublisher)) {
+            modify_asset_list.push({"IsPublisher":{"oldValue":Number(value.IsPublisher),"newValue":Number(IsPublisher)}});
+        }
+        if($.trim(value.AssetEnvironment) !== $.trim(data.AssetEnvironment)){
+            modify_asset_list.push({"AssetEnvironment":{"oldValue":value.AssetEnvironment,"newValue":$.trim(data.AssetEnvironment)}});
+        }
+        if($.trim(value.AssetStatus) !== $.trim(data.AssetStatus)){
+            modify_asset_list.push({"AssetStatus":{"oldValue":value.AssetStatus,"newValue":$.trim(data.AssetStatus)}});
+        }
+        if($.trim(value.Applications) !== $.trim(data.Applications)){
+            modify_asset_list.push({"Applications":{"oldValue":value.Applications,"newValue":$.trim(data.Applications)}});
+        }
+        if($.trim(value.AssetGroupName) !== AssetGroupName){
+            modify_asset_list.push({"AssetGroupName":{"oldValue":value.AssetGroupName,"newValue":AssetGroupName}});
+        }
+        if($.trim(value.IdcName) !== IdcName){
+            modify_asset_list.push({"IdcName":{"oldValue":value.IdcName,"newValue":IdcName}});
+        }
+        if($.trim(value.ExpireTime) !== ExpireTime){
+            data.ExpireTime = ExpireTime;
+            modify_asset_list.push({"ExpireTime":{"oldValue":value.ExpireTime,"newValue":ExpireTime}});
+        }
+        if($.trim(value.Comment) !== $.trim(data.Comment)){
+            modify_asset_list.push({"Comment":{"oldValue":value.Comment,"newValue":$.trim(data.Comment)}});
+        }
+        if($.trim(value.OpManager) !== $.trim(data.OpManager)){
+            modify_asset_list.push({"OpManager":{"oldValue":value.OpManager,"newValue":$.trim(data.OpManager)}});
+        }
+        if($.trim(value.JdkVersion) !== $.trim(data.JdkVersion)){
+            modify_asset_list.push({"JdkVersion":{"oldValue":value.JdkVersion,"newValue":$.trim(data.JdkVersion)}});
+        }
+        if(modify_asset_list.length === 0){
+            return false
+        }
+        if(value.OuterIp !== ""){
+            ip = value.OuterIp;
+        } else {
+            ip = value.InnerIp;
+        }
+        $.ajax({
+            url:"{{urlfor "AssetController.DoAsset"}}",
+            type:"post",
+            data:{"data":JSON.stringify(modify_asset_list),"id":value.Id,"ip":ip},
+            success:function(res){
+                if(res.Status === "fail"){
+                    layer.alert(res.Msg,{icon:6,title:'错误'})
+                } else {
+                    //$("#AssetModal").modal("hide");
+                    //get_asset_list("","",ip)
+                    window.location.reload();
+                }
+            }
+        })
+    }
+
+    function show_asset_info(id,asset_list){
+        asset_list.forEach(function(value,index,arr){
+            if(value.Id === id){
+                data.asset_info_list = value;
+            }
+        })
+    }
+
+    function edit_asset(id,asset_list){
+        asset_list.forEach(function(value,index,arr){
+            if(value.Id === id){
+                var temp = [];
+                data.edit_asset_list = value;
+                data.Hostname = value.Hostname;
+                data.InnerIp = value.InnerIp;
+                data.OuterIp = value.OuterIp;
+                data.Os = value.Os;
+                data.OsRelease = value.OsRelease;
+                data.Cpu = value.Cpu;
+                data.Memory = value.Memory;
+                data.Disk = value.Disk;
+                data.Sn = value.Sn;
+                data.AssetType = value.AssetType;
+                data.Manufacturer = value.Manufacturer;
+                data.Model = value.Model;
+                data.AssetNumber = value.AssetNumber;
+                data.CabinetNumber = value.CabinetNumber;
+                data.CabinetPosition = value.CabinetPosition;
+                data.IsPublisher = value.IsPublisher;
+                data.AssetEnvironment = value.AssetEnvironment;
+                data.AssetStatus = value.AssetStatus;
+                data.IdcName = value.IdcName;
+                data.Applications = value.Applications;
+                data.ExpireTime = value.ExpireTime;
+                data.Comment = value.Comment;
+                data.OpManager = value.OpManager;
+                data.JdkVersion = value.JdkVersion;
+                owned_group_list = value.AssetGroupName.split(",");
+                data.idc_list.forEach(function(value,index,arr){
+                    if(value.Name !== data.IdcName){
+                        data.unowned_idc_list.push({"Id":value.Id,"Name":value.Name})
+                    } else {
+                        data.owned_idc_list.push({"Id":value.Id,"Name":value.Name})
+                    }
+                });
+                for(var i=0;i<owned_group_list.length;i++){
+                    group_name = owned_group_list[i];
+                    temp[group_name] = true;
+                }
+                for(var j=0;j<data.group_list.length;j++){
+                    if(!temp[data.group_list[j].GroupName]){
+                        data.unowned_group_list.push({"Id":data.group_list[j].Id,"GroupName":data.group_list[j].GroupName})
+                    } else {
+                        data.owned_group_list.push({"Id":data.group_list[j].Id,"GroupName":data.group_list[j].GroupName})
+                    }
+                }
+            }
+        })
+    }
+
+    function load_asset_list(page,idc,asset_status,keyword){
+        if(idc === "IDC机房") {
+            idc = "";
+        }
+        if(asset_status === "主机状态"){
+            asset_status = "";
+        }
+        $.ajax({
+            url:"{{urlfor "AssetController.GetAssetList"}}",
+            data: {"page":page,"keyword":keyword,"idc":idc,"asset_status":asset_status},
+            success:function(res){
+                console.log(res);
+                if(res.Status === "fail"){
+                    data.errMsg = res.Msg;
+                } else {
+                    data.asset_list = res;
+                }
+            }
+        })
+    }
+    function load_idc_list(){
+        $.ajax({
+            url:"{{urlfor "IdcController.GetIdcList"}}",
+            success:function(res){
+                data.idc_list = res;
+            }
+        })
+    }
+    function load_asset_group_list(){
+        $.ajax({
+            url:"{{urlfor "AssetGroupController.GetAssetGroupList"}}",
+            data: {"select_type": "all"},
+            success:function(res){
+                data.group_list = res;
+            }
+        })
+    }
+    // 自定义IP验证
+    $.validator.addMethod("checkIPFormat", function(value, element) {
+        var ip = /((25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))/;
+        return this.optional(element) || (ip.test(value));
+    }, "IP格式不正确");
+
+    function add_asset(){
+        var $addAssetForm = $('#addAssetForm');
+        $addAssetForm.sdvalidate({
+            rules: {
+                hostname: {
+                    maxlength: 64,
+                    required: true
+                },
+                inner_ip: {
+                    checkIPFormat:true,
+                    required:true,
+                },
+                outer_ip: {
+                    checkIPFormat:true,
+                },
+                asset_status: {
+                    required:true,
+                },
+                asset_environment: {
+                    required:true,
+                },
+                is_publisher: {
+                    required:true,
+                },
+                asset_type: {
+                    required:true,
+                },
+                os: {
+                    required:true,
+                },
+                os_release: {
+                    required:true,
+                },
+                cpu: {
+                    required:true,
+                },
+                memory: {
+                    required:true,
+                },
+                disk: {
+                    required:true,
+                }
+            },
+            messages: {
+                role_name: {
+                    maxlength: "长度不大于16位",
+                    required: "请输入角色名称"
+                },
+                hostname: {
+                    maxlength: "长度不大于64位",
+                    required: "请输入主机名",
+                },
+                inner_ip: {
+                    required:"请输入内网IP",
+                },
+                asset_status: {
+                    required:"请选择主机状态",
+                },
+                asset_environment:{
+                    required:"请选择主机环境",
+                },
+                is_publisher: {
+                    required:"请选择是否是发布机",
+                },
+                asset_type: {
+                    required:"请选择主机类型",
+                },
+                os: {
+                    required:"请选择操作系统",
+                },
+                os_release: {
+                    required:"请选择系统版本",
+                },
+                cpu: {
+                    required:"请选择CPU",
+                },
+                memory: {
+                    required:"请选择内存",
+                },
+                disk: {
+                    required:"请选择硬盘",
+                }
+            },
+            highlight : function(element,errorClass){
+                $(element).css('border','2px solid red');
+            },
+            unhighlight : function(element,errorClass){
+                $(element).css('border','1px solid green');
+            },
+            submitHandler: function (form) {
+                var url = '{{urlfor "AssetController.DoAsset"}}';
+                var data = $addAssetForm.serialize();
+                $.ajax({
+                    type:"post",
+                    async:true,
+                    data:data,
+                    url:url,
+                    dataType:"json",
+                    success: function(res){
+                        if (res.Status === "ok") {
+                            window.location.reload();
+                        } else {
+                            layer.alert(res.Msg, {icon:6,title:'提示'})
+                        }
+                    }
+                });
+                return false;
+            }
+        });
+    }
+</script>

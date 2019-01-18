@@ -1,0 +1,197 @@
+<script>
+    window.onload = function(){
+        load_idc_list();
+        add_idc_group();
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#AssetManage").addClass("active");
+    };
+
+    data = {
+        idc_list: "",
+        edit_idc_list: [],
+        idc_id: "",
+        keyword: "",
+        title: "",
+        Name: "",
+        Bandwidth: "",
+        Contacts: "",
+        Mobile: "",
+        Address: "",
+        Network: "",
+        Operator: "",
+        Comment: "",
+        is_edit: false,
+        owned_permissions: "",
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#idc_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            clear_data: function(){
+                this.title = "添加IDC"
+                this.Name = "";
+                this.Bandwidth = "";
+                this.Contacts = "";
+                this.Mobile = "";
+                this.Address = "";
+                this.Network = "";
+                this.Operator = "";
+                this.Comment = "";
+                this.is_edit = false;
+            },
+            delete_idc: function(id){
+                delete_idc(id);
+            },
+            edit_idc: function(id){
+                this.title = "编辑IDC";
+                edit_idc(id,this.idc_list);
+            },
+            get_idc_list: function(){
+                get_idc_list(this.keyword);
+            }
+        },
+    });
+
+    function edit_idc(id,idc_list) {
+        idc_list.forEach(function(value,index,arr) {
+            if (value.Id === id) {
+                data.edit_idc_list = value;
+                data.idc_id = id;
+                data.is_edit = true;
+                data.Name = value.Name;
+                data.Bandwidth = value.Bandwidth;
+                data.Contacts = value.Contacts;
+                data.Mobile = value.Mobile;
+                data.Address = value.Address;
+                data.Network = value.Network;
+                data.Operator = value.Operator;
+                data.Comment = value.Comment;
+            }
+        })
+    }
+
+    function delete_idc(id) {
+        layer.confirm("确定要删除该IDC吗？",{title:"删除确认"},function() {
+            $.ajax({
+                url: "{{urlfor "IdcController.DoIdc"}}",
+                data: {"idc_id": id},
+                success: function (res) {
+                    if (res.Status === "ok") {
+                        window.location.reload();
+                    } else {
+                        layer.alert(res.Msg, {icon: 6, title: '提示'})
+                    }
+                }
+            })
+        })
+    }
+
+    function get_idc_list(keyword){
+        if ($.trim(keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "IdcController.GetIdcList"}}",
+            data:{"keyword":$.trim(keyword)},
+            success:function(res){
+                data.idc_list = res;
+            }
+        })
+    }
+
+    function load_idc_list(){
+        $.ajax({
+            url:"{{urlfor "IdcController.GetIdcList"}}",
+            success:function(res){
+                data.idc_list = res;
+            }
+        })
+    }
+
+    function add_idc_group(){
+        var $addIdcForm= $('#addIdcForm');
+        $addIdcForm.sdvalidate({
+            rules: {
+                Name: {
+                    maxlength: 64,
+                    required: true
+                },
+                Bandwidth: {
+                    required: true
+                },
+                Contacts: {
+                    required: true
+                },
+                Mobile: {
+                    required: true
+                }
+            },
+            messages: {
+                Name: {
+                    maxlength: "长度不大于64位",
+                    required: "请输入机房名称"
+                },
+                Bandwidth: {
+                    required: "请输入所用带宽"
+                },
+                Contacts: {
+                    required: "请输入机房联系人"
+                },
+                Mobile: {
+                    required: "请输入机房电话"
+                }
+            },
+            highlight: function(element,errorClass){
+                $(element).css('border','2px solid red');
+            },
+            unhighlight: function(element,errorClass){
+                $(element).css('border','1px solid green');
+            },
+            submitHandler: function (form) {
+                var FormData = $addIdcForm.serialize();
+                if (data.is_edit) {
+                    if(data.edit_idc_list.Name === $.trim(data.Name) && data.edit_idc_list.Bandwidth === $.trim(data.Bandwidth) && data.edit_idc_list.Contacts === $.trim(data.Contacts) && data.edit_idc_list.Mobile === $.trim(data.Mobile) && data.edit_idc_list.Address === $.trim(data.Address) && data.edit_idc_list.Network === $.trim(data.Network) && data.edit_idc_list.Operator === $.trim(data.Operator) && data.edit_idc_list.Comment === $.trim(data.Comment)){
+                        return false
+                    }
+                    if(data.edit_idc_list.Name !== $.trim(data.Name)) {
+                        FormData = $.param({"FormType":'modify_idc',"idc_id":data.idc_id,"IdcNameStatus":"Change"})+'&'+ $addIdcForm.serialize();
+                    } else {
+                        FormData = $.param({"FormType":'modify_idc',"idc_id":data.idc_id,"IdcNameStatus":"NotChange"})+'&'+ $addIdcForm.serialize();
+                    }
+                }
+                var url = '{{urlfor "IdcController.DoIdc"}}';
+                $.ajax({
+                    type:"post",
+                    async:true,
+                    data:FormData,
+                    url:url,
+                    dataType:"json",
+                    success: function(res){
+                        if (res.Status === "ok") {
+                            if(data.is_edit) {
+                                $("#IdcModal").modal("hide");
+                                get_idc_list($.trim(data.Name));
+                            } else {
+                                window.location.reload();
+                            }
+                        } else {
+                            layer.alert(res.Msg, {icon:6,title:'提示'})
+                        }
+                    }
+                });
+                return false;
+            }
+        });
+    }
+</script>

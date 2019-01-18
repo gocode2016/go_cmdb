@@ -1,0 +1,219 @@
+<script>
+    window.onload = function(){
+        load_group_list();
+        add_asset_group();
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#AssetManage").addClass("active");
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}");
+    };
+    data = {
+        group_list: "",
+        asset_list: "",
+        group_id: "",
+        keyword: "",
+        title: "",
+        GroupName: "",
+        AliasName: "",
+        DevManager: "",
+        OpManager: "",
+        Comment: "",
+        edit_group_list: [],
+        is_edit: false,
+        owned_permissions: "",
+        asset_number: "",
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#asset_group_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            get_group_list: function(){
+                get_group_list(this.keyword);
+            },
+            delete_group: function(id){
+                delete_group(id);
+            },
+            edit_group: function(id){
+                this.title = "编辑资产组";
+                edit_group(id,this.group_list);
+            },
+            clear_data: function(){
+                this.title = "添加资产组";
+                this.GroupName = "";
+                this.AliasName = "";
+                this.DevManager = "";
+                this.OpManager = "";
+                this.Comment = "";
+                this.is_edit = false;
+            },
+            get_assets: function(id){
+                this.asset_list = "";
+                get_assets(id);
+            }
+        },
+    });
+
+    function get_assets(id) {
+        $.ajax({
+            url: "{{urlfor "AssetGroupController.DoAssetGroup"}}",
+            data: {"group_id": id,"target":"get_assets"},
+            success: function (res) {
+                if (res) {
+                    data.asset_list = res;
+                    data.asset_number = res.length;
+                }
+                $('#ShowAssetsModal').modal("show");
+            },
+            error: function() {
+                layer.alert("查询失败", {icon: 6, title: '提示'})
+            }
+        })
+    }
+
+    function edit_group(id,group_list) {
+        group_list.forEach(function(value,index,arr) {
+            if (value.Id === id) {
+                data.edit_group_list = value;
+                data.group_id = id;
+                data.is_edit = true;
+                data.GroupName = value.GroupName;
+                data.AliasName = value.AliasName;
+                data.DevManager = value.DevManager;
+                data.OpManager = value.OpManager;
+                data.Comment = value.Comment;
+            }
+        })
+    }
+
+    function delete_group(id) {
+        layer.confirm("确定要删除该资产组吗？",{title:"删除确认"},function() {
+            $.ajax({
+                url: "{{urlfor "AssetGroupController.DoAssetGroup"}}",
+                data: {"group_id": id},
+                success: function (res) {
+                    if (res.Status === "ok") {
+                        window.location.reload();
+                    } else {
+                        layer.alert(res.Msg, {icon: 6, title: '提示'})
+                    }
+                }
+            })
+        })
+    }
+
+    function page(totalPage,count){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_group_list(page);
+            }
+        });
+    }
+
+    function get_group_list(keyword){
+        if ($.trim(keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "AssetGroupController.GetAssetGroupList"}}",
+            data:{"keyword":$.trim(keyword)},
+            success:function(res){
+                data.group_list = res;
+                count = "{{.number}}";
+                total = data.group_list[0]["Count"];
+                totalPage = Math.ceil(total/count);
+                page(totalPage,count);
+            }
+        })
+    }
+
+    function load_group_list(page){
+        $.ajax({
+            url:"{{urlfor "AssetGroupController.GetAssetGroupList"}}",
+            data: {"page":page,"keyword":data.keyword},
+            success:function(res){
+                data.group_list = res;
+            }
+        })
+    }
+
+    function add_asset_group(){
+        var $addAssetGroupForm= $('#addAssetGroupForm');
+        $addAssetGroupForm.sdvalidate({
+            rules: {
+                GroupName: {
+                    maxlength: 64,
+                    required: true
+                },
+            },
+            messages: {
+                GroupName: {
+                    maxlength: "长度不大于64位",
+                    required: "请输入资产组名称"
+                },
+            },
+            highlight: function(element,errorClass){
+                $(element).css('border','2px solid red');
+            },
+            unhighlight: function(element,errorClass){
+                $(element).css('border','1px solid green');
+            },
+            submitHandler: function (form) {
+                var FormData = $addAssetGroupForm.serialize();
+                if (data.is_edit) {
+                    if(data.edit_group_list.GroupName === $.trim(data.GroupName) && data.edit_group_list.AliasName === $.trim(data.AliasName) && data.edit_group_list.DevManager === $.trim(data.DevManager) && data.edit_group_list.OpManager === $.trim(data.OpManager) && data.edit_group_list.Comment === $.trim(data.Comment)){
+                        return false
+                    }
+                    if(data.edit_group_list.GroupName !== $.trim(data.GroupName)) {
+                        FormData = $.param({"FormType":'modify_asset_group',"group_id":data.group_id,"GroupNameStatus":"Change"})+'&'+ $addAssetGroupForm.serialize();
+                    } else {
+                        FormData = $.param({
+                            "FormType": 'modify_asset_group',
+                            "group_id": data.group_id,
+                            "GroupNameStatus": "NotChange",
+                        }) + '&' + $addAssetGroupForm.serialize();
+                    }
+                }
+                var url = '{{urlfor "AssetGroupController.DoAssetGroup"}}';
+                $.ajax({
+                    type:"post",
+                    async:true,
+                    data:FormData,
+                    url:url,
+                    dataType:"json",
+                    success: function(res){
+                        if (res.Status === "ok") {
+                            if (data.is_edit) {
+                                $("#AssetGroupModal").modal("hide");
+                                get_group_list($.trim(data.GroupName));
+                            } else {
+                                window.location.reload();
+                            }
+                        } else {
+                            layer.alert(res.Msg, {icon:6,title:'提示'})
+                        }
+                    }
+                });
+                return false;
+            }
+        });
+    }
+</script>

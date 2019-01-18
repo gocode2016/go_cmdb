@@ -1,0 +1,261 @@
+<script>
+    window.onload = function(){
+        load_template_list();
+        add_template();
+        load_template_list("cn");
+        load_template_list("foreign");
+        load_host_group_list("cn");
+        load_host_group_list("foreign");
+        $('#UserManage').removeClass("active");
+        $("#AssetManage").removeClass("active");
+        $("#ZabbixManage").removeClass("active");
+        $("#LogCheck").removeClass("active");
+        $("#dashboard").removeClass("active");
+        $("#ZabbixManage").addClass("active");
+        totalPage = Math.ceil("{{.total}}"/"{{.number}}");
+        page(totalPage,"{{.number}}","");
+        $("#TemplateName").select2({
+            dropdownParent:$("#TemplateModal"),
+        });
+        $("#GroupName").select2({
+            dropdownParent:$("#TemplateModal"),
+        });
+    };
+    data = {
+        keyword: "",
+        template_list: [],
+        host_group_list: [],
+        template_arr: [],
+        host_group_arr: [],
+        foreign_template_list: [],
+        cn_template_list: [],
+        foreign_host_group_list: [],
+        cn_host_group_list: [],
+        title: "",
+        environment: "",
+        templateName: "",
+        templateId: "",
+        oldTemplateName: "",
+        tint: "",
+        type: "cn",
+        is_edit: false,
+    };
+
+    if("{{.permissionMap}}") {
+        permissionJson = JSON.parse("{{.permissionMap}}");
+        data.owned_permissions = permissionJson;
+    }
+
+    new Vue({
+        el: '#zabbix_template_list',
+        delimiters: ['${', '}'],
+        data: data,
+        methods: {
+            get_template_list: function(){
+                get_template_list(this.keyword);
+            },
+            clear_data: function(){
+                this.type = "cn";
+                this.templateName = "";
+                this.tint = "";
+                this.is_edit = false;
+                this.template_arr = this.cn_template_list;
+                this.host_group_arr = this.cn_host_group_list;
+                this.title = "添加zabbix模板";
+            },
+            delete_template: function(Id, TemplateId, Type){
+                delete_template(Id, TemplateId, Type);
+            },
+            edit_template: function(Id,templateId,templateName,Type){
+                this.tint = "";
+                this.title = "编辑zabbix模板";
+                this.environment = Type;
+                this.templateName = templateName;
+                this.templateId = templateId;
+                this.oldTemplateName = templateName;
+                this.is_edit = true;
+                $("#inputTemplateName").removeAttr("style").removeAttr("aria-required").removeAttr("aria-describedby");
+                $("#inputTemplateName-error").remove();
+                $("#TemplateModal").modal("show");
+            },
+            update_template: function(){
+                update_template(this.templateId, this.environment, this.oldTemplateName);
+            },
+            load_group_and_template: function(){
+                if(this.type === "foreign") {
+                    this.template_arr = this.foreign_template_list;
+                    this.host_group_arr = this.foreign_host_group_list;
+                } else if(this.type === "cn") {
+                    this.template_arr = this.cn_template_list;
+                    this.host_group_arr = this.cn_host_group_list;
+                }
+            },
+        }
+    });
+
+    function update_template(templateId, environment, oldTemplateName) {
+        templateName = $("inputTemplateName").val();
+        if($.trim(templateName) === $.trim(oldTemplateName)){
+            data.tint = "<strong style='color:red'>模板名称没有更改！</strong>";
+            return false;
+        }
+        if($.trim(templateName) === ""){
+            data.tint = "<strong style='color:red'>模板名称不能为空！</strong>";
+            return false;
+        }
+        $.ajax({
+            url: "{{urlfor "ZabbixTemplateController.DoZabbixTemplate"}}",
+            type: "post",
+            data: {"TemplateId": templateId, "TemplateName": templateName, "environment": environment},
+            success: function (res) {
+                if (res.Status === "fail") {
+                    layer.alert(res.Msg, {icon: 6, title: '错误'})
+                } else {
+                    window.location.reload();
+                }
+            }
+        })
+    }
+
+    function delete_template(Id,TemplateId,Type) {
+        layer.confirm("确定要删除该模板吗？",{title:"删除确认"},function() {
+            $.ajax({
+                url: "{{urlfor "ZabbixTemplateController.DoZabbixTemplate"}}",
+                type: "post",
+                data: {"Id": Id,"TemplateId": TemplateId,"environment": Type},
+                success: function (res) {
+                    if (res.Status === "fail") {
+                        layer.alert(res.Msg, {icon: 6, title: '错误'})
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            })
+        })
+    }
+
+    function page(totalPage, count, environment, keyword){
+        $("#pagination").pagination({
+            currentPage: 1,
+            totalPage: totalPage,
+            isShow: true,
+            count: count,
+            homePageText: "首页",
+            endPageText: "尾页",
+            prevPageText: "上一页",
+            nextPageText: "下一页",
+            callback: function(page) {
+                load_template_list(environment, page, keyword);
+            }
+        });
+    }
+
+    function get_template_list(keyword){
+        if ($.trim(keyword) === ""){
+            return false
+        }
+        $.ajax({
+            url:"{{urlfor "ZabbixTemplateController.GetTemplateList"}}",
+            data:{"keyword": $.trim(keyword)},
+            success:function(res){
+                data.template_list = res;
+                count = "{{.number}}";
+                if(data.template_list){
+                    total = data.template_list[0]["Count"];
+                    totalPage = Math.ceil(total/count);
+                    page(totalPage, count, "", keyword);
+                } else {
+                    page(0, count, "", keyword);
+                }
+            }
+        })
+    }
+
+    function load_template_list(environment, page, keyword) {
+        $.ajax({
+            url:"{{urlfor "ZabbixTemplateController.GetTemplateList"}}",
+            data: {"page": page,"keyword": keyword, "environment": environment},
+            success:function(res){
+                if(environment === "foreign"){
+                    data.foreign_template_list = res;
+                } else if (environment === "cn"){
+                    data.cn_template_list = res;
+                } else {
+                    data.template_list = res;
+                }
+            }
+        })
+    }
+
+    function load_host_group_list(environment) {
+        $.ajax({
+            url:"{{urlfor "ZabbixHostGroupController.GetHostGroupList"}}",
+            data: {"environment":environment},
+            success:function(res){
+                if(environment === "foreign"){
+                    data.foreign_host_group_list = res;
+                } else if (environment === "cn"){
+                    data.cn_host_group_list = res;
+                }
+            }
+        })
+    }
+
+    // 自定义IP验证
+    $.validator.addMethod("checkIPFormat", function(value, element) {
+        var ip = /((25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))/;
+        return this.optional(element) || (ip.test(value));
+    }, "IP格式不正确");
+
+    function add_template(){
+        var $TemplateForm = $('#TemplateForm');
+        var rules = {
+            TemplateName: {
+                maxlength: 64,
+                required: true
+            },
+            GroupIds: {
+                required: true
+            }
+        };
+        var messages = {
+            TemplateName: {
+                maxlength: "长度不能大于64位",
+                required: "请输入模板名称"
+            },
+            GroupIds: {
+                required: "请选择主机组"
+            }
+        };
+
+        $TemplateForm.sdvalidate({
+            rules: rules,
+            messages: messages,
+            highlight: function(element,errorClass){
+                $(element).css('border','2px solid red');
+            },
+            unhighlight: function(element,errorClass){
+                $(element).css('border','1px solid green');
+            },
+            submitHandler: function (form) {
+                var url = '{{urlfor "ZabbixTemplateController.DoZabbixTemplate"}}';
+                var FormData = $TemplateForm.serialize();
+                $.ajax({
+                    type:"post",
+                    async:true,
+                    data:FormData,
+                    url:url,
+                    dataType:"json",
+                    success: function(res){
+                        if(res.Status === "ok") {
+                            window.location.reload();
+                        } else {
+                            layer.alert(res.Msg, {icon:6,title:'提示'})
+                        }
+                    }
+                });
+                return false;
+            }
+        });
+    }
+</script>
